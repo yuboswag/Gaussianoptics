@@ -187,11 +187,13 @@ class ZoomLensOptimizer:
         return penalty * self.weights['gaps']
 
     def _penalty_petzval(self, f1_dyn: float, f2: float, f3: float, f4_dyn: float) -> float:
-        n_assume = 1.7
+        cfg = self.config
         P_sum = (
-            1.0 / f1_dyn + 1.0 / f2 +
-            1.0 / f3 + 1.0 / f4_dyn
-        ) / n_assume
+            1.0 / (f1_dyn * cfg.n_G1) +
+            1.0 / (f2 * cfg.n_G2) +
+            1.0 / (f3 * cfg.n_G3) +
+            1.0 / (f4_dyn * cfg.n_G4)
+        )
         return max(0.0, abs(P_sum) - 0.015) * self.weights['petzval']
 
     def _penalty_monotonicity(self, z2: np.ndarray, z3: np.ndarray) -> float:

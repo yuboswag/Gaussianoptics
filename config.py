@@ -45,6 +45,11 @@ class ZoomConfig:
     g2_thickness: float = 9.0    # G2 变倍组
     g3_thickness: float = 7.0    # G3 补偿组
     g4_thickness: float = 21.0   # G4 后固定组
+    # 各组元等效折射率估算（用于 Petzval 场曲约束）
+    n_G1: float = 1.60    # G1 前固定组（H-LaK 正元件 + H-ZF 负元件胶合，加权等效 n）
+    n_G2: float = 1.80    # G2 变倍组（H-ZF52/H-ZLaF 高折射率火石为主）
+    n_G3: float = 1.65    # G3 补偿组（取决于构型，中等折射率）
+    n_G4: float = 1.65    # G4 后固定组（中高折射率冕牌为主）
     # 各组总厚度（玻璃+组内间隔之和，mm），用于主平面→实际空气间隔转换
     t_G1: float = 0.0
     t_G2: float = 0.0

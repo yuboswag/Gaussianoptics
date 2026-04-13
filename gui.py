@@ -73,6 +73,10 @@ class ZoomLensDesignerGUI:
             ("G2 组厚度估算 (mm)",   "g2_thickness"),
             ("G3 组厚度估算 (mm)",   "g3_thickness"),
             ("G4 组厚度估算 (mm)",   "g4_thickness"),
+            ("G1 等效折射率 n₁",     "n_G1"),
+            ("G2 等效折射率 n₂",     "n_G2"),
+            ("G3 等效折射率 n₃",     "n_G3"),
+            ("G4 等效折射率 n₄",     "n_G4"),
         )
 
         param_frame = ttk.Frame(parent)
@@ -245,6 +249,10 @@ class ZoomLensDesignerGUI:
         g2_t_default      = 9.0
         g3_t_default      = 7.0
         g4_t_default      = 21.0
+        n_G1_default      = 1.60
+        n_G2_default      = 1.80
+        n_G3_default      = 1.65
+        n_G4_default      = 1.65
 
         config_file = "last_run_config.json"
         if os.path.exists(config_file):
@@ -262,6 +270,14 @@ class ZoomLensDesignerGUI:
                         shift_default = float(saved_data["stop_shift"])
                     if "stop_group" in saved_data:
                         stop_group_default = int(saved_data["stop_group"])
+                    if "n_G1" in saved_data:
+                        n_G1_default = float(saved_data["n_G1"])
+                    if "n_G2" in saved_data:
+                        n_G2_default = float(saved_data["n_G2"])
+                    if "n_G3" in saved_data:
+                        n_G3_default = float(saved_data["n_G3"])
+                    if "n_G4" in saved_data:
+                        n_G4_default = float(saved_data["n_G4"])
             except Exception as e:
                 print(f"读取上次配置失败: {e}")
 
@@ -274,6 +290,14 @@ class ZoomLensDesignerGUI:
         self.params['g2_thickness'].insert(0, str(g2_t_default))
         self.params['g3_thickness'].insert(0, str(g3_t_default))
         self.params['g4_thickness'].insert(0, str(g4_t_default))
+        self.params['n_G1'].insert(0, str(n_G1_default))
+        self.params['n_G2'].insert(0, str(n_G2_default))
+        self.params['n_G3'].insert(0, str(n_G3_default))
+        self.params['n_G4'].insert(0, str(n_G4_default))
+        self.params['n_G1'].insert(0, str(n_G1_default))
+        self.params['n_G2'].insert(0, str(n_G2_default))
+        self.params['n_G3'].insert(0, str(n_G3_default))
+        self.params['n_G4'].insert(0, str(n_G4_default))
 
         self.var_constant_f.set(constant_f_state)
         self.var_vig.set(vig_default)
@@ -522,6 +546,10 @@ class ZoomLensDesignerGUI:
                 g2_thickness      = float(self.params['g2_thickness'].get()),
                 g3_thickness      = float(self.params['g3_thickness'].get()),
                 g4_thickness      = float(self.params['g4_thickness'].get()),
+                n_G1              = float(self.params['n_G1'].get()),
+                n_G2              = float(self.params['n_G2'].get()),
+                n_G3              = float(self.params['n_G3'].get()),
+                n_G4              = float(self.params['n_G4'].get()),
             )
         except ValueError:
             messagebox.showerror("错误", "参数格式不正确，请检查所有输入框！")
@@ -641,13 +669,14 @@ class ZoomLensDesignerGUI:
         ttl_actual = self.optimizer.best_ttl
         self._log(f"    实际 TTL = {ttl_actual:.2f} mm  (目标 {cfg.ttl_target}, 偏差 {(ttl_actual/cfg.ttl_target - 1)*100:+.1f}%)")
 
-        n_assume = 1.7
         P_sum = (
-            1 / best_f1 + 1 / f2 +
-            1 / f3 + 1 / best_f4
-        ) / n_assume
+            1.0 / (best_f1 * cfg.n_G1) +
+            1.0 / (f2 * cfg.n_G2) +
+            1.0 / (f3 * cfg.n_G3) +
+            1.0 / (best_f4 * cfg.n_G4)
+        )
         R_pz = -1.0 / P_sum if P_sum != 0 else float('inf')
-        self._log(f"    *系统佩兹伐和 (n≈1.7) = {P_sum:.4f}")
+        self._log(f"    *系统佩兹伐和 (分组 n) = {P_sum:.4f}")
         self._log(f"    *初始场曲曲率半径 R_pz = {R_pz:.1f} mm")
         
         crossings = int(np.sum(np.diff(np.sign(traj['m3'] - (-1.0))) != 0))
