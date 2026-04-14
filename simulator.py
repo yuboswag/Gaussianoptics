@@ -56,7 +56,9 @@ class ZoomSystemSimulator:
         # 转换为实际空气间隔（半厚度近似：各组主平面在组中心）
         d1 = d1_thin - (self._t_G1 + self._t_G2) / 2  # G1-G2 间隔：扣除 G1、G2 各半厚度
         d2 = d2_thin - (self._t_G2 + self._t_G3) / 2  # G2-G3 间隔：扣除 G2、G3 各半厚度
-        d3 = d3_thin - (self._t_G3 + self._t_G4) / 2  # G3-G4 间隔：扣除 G3、G4 各半厚度
+        # G3-G4 间距：扣除 G3 半厚度 + G4 半厚度 + G4 后主面偏移修正
+        # delta_Hp_G4 > 0 表示 G4 主平面偏向像方，意味着与 G3 之间的实际气隙更小
+        d3 = d3_thin - (self._t_G3 + self._t_G4) / 2 - self.config.delta_Hp_G4
 
         # _paraxial_ca 现在额外返回三组边缘光线追迹数组：
         #   h_m     — 各组元入射处边缘光线高度，shape (N, 4)

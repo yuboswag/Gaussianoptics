@@ -73,33 +73,55 @@ class ZoomLensDesignerGUI:
             ("G2 组厚度估算 (mm)",   "g2_thickness"),
             ("G3 组厚度估算 (mm)",   "g3_thickness"),
             ("G4 组厚度估算 (mm)",   "g4_thickness"),
-            ("G1 等效折射率 n₁",     "n_G1"),
-            ("G2 等效折射率 n₂",     "n_G2"),
-            ("G3 等效折射率 n₃",     "n_G3"),
-            ("G4 等效折射率 n₄",     "n_G4"),
+            # 显式等效折射率（主用字段）
+            ("G1 等效折射率 n_eff₁", "n_eff_G1"),
+            ("G2 等效折射率 n_eff₂", "n_eff_G2"),
+            ("G3 等效折射率 n_eff₃", "n_eff_G3"),
+            ("G4 等效折射率 n_eff₄", "n_eff_G4"),
+            # 新增：G4 后主面偏移
+            ("G4 后主面偏移 δH' (mm)", "delta_Hp_G4"),
+            # 新增：d1 广角端最小间距
+            ("d1广角端最小间距 (mm)", "d1_wide_min"),
+            # 新增：等效阿贝数
+            ("G1 等效阿贝数 V₁",     "v_eff_G1"),
+            ("G2 等效阿贝数 V₂",     "v_eff_G2"),
+            ("G3 等效阿贝数 V₃",     "v_eff_G3"),
+            ("G4 等效阿贝数 V₄",     "v_eff_G4"),
         )
 
         param_frame = ttk.Frame(parent)
         param_frame.pack(fill='x', pady=5)
 
-        for row_idx, (label_text, key) in enumerate(entries):
+        half = len(entries) // 2  # 左列行数（前一半）
+
+        for idx, (label_text, key) in enumerate(entries):
+            if idx < half:
+                # 左列：col 0=Label, col 1=Entry
+                col_lbl, col_ent, row = 0, 1, idx
+            else:
+                # 右列：col 2=Label, col 3=Entry
+                col_lbl, col_ent, row = 2, 3, idx - half
+
             ttk.Label(param_frame, text=label_text).grid(
-                row=row_idx, column=0, sticky='w', pady=3
+                row=row, column=col_lbl, sticky='w', pady=2, padx=(0, 2)
             )
-            entry = ttk.Entry(param_frame, width=12)
-            entry.grid(row=row_idx, column=1, padx=5)
+            entry = ttk.Entry(param_frame, width=10)
+            entry.grid(row=row, column=col_ent, padx=(0, 20) if idx < half else (0, 4))
             self.params[key] = entry
-        
+
+        # ── "保持恒定光圈"复选框 ────────────────────────────────────
         self.var_constant_f = tk.BooleanVar(value=True)
         chk = ttk.Checkbutton(
-            param_frame, 
-            text="保持恒定光圈 (Constant F/#)", 
+            param_frame,
+            text="保持恒定光圈 (Constant F/#)",
             variable=self.var_constant_f
         )
-        chk.grid(row=len(entries), column=0, columnspan=2, sticky='w', padx=5, pady=5)
+        chk.grid(row=half, column=0, columnspan=4, sticky='w', padx=5, pady=5)
 
+        # ── 按钮区域 ────────────────────────────────────────────────
         btn_box = ttk.Frame(param_frame)
-        btn_box.grid(row=len(entries) + 1, column=0, columnspan=2, pady=8, sticky='ew')
+        btn_box.grid(row=half + 1, column=0, columnspan=4, pady=8, sticky='ew')
+
 
         ttk.Button(
             btn_box,
@@ -249,10 +271,16 @@ class ZoomLensDesignerGUI:
         g2_t_default      = 9.0
         g3_t_default      = 7.0
         g4_t_default      = 21.0
-        n_G1_default      = 1.60
-        n_G2_default      = 1.80
-        n_G3_default      = 1.65
-        n_G4_default      = 1.65
+        n_eff_G1_default  = 1.6
+        n_eff_G2_default  = 1.8
+        n_eff_G3_default  = 1.7
+        n_eff_G4_default  = 1.7
+        delta_Hp_G4_default = 0.0
+        d1_wide_min_default = 12.0
+        v_eff_G1_default  = 60.0
+        v_eff_G2_default  = 30.0
+        v_eff_G3_default  = 50.0
+        v_eff_G4_default  = 55.0
 
         config_file = "last_run_config.json"
         if os.path.exists(config_file):
@@ -270,14 +298,26 @@ class ZoomLensDesignerGUI:
                         shift_default = float(saved_data["stop_shift"])
                     if "stop_group" in saved_data:
                         stop_group_default = int(saved_data["stop_group"])
-                    if "n_G1" in saved_data:
-                        n_G1_default = float(saved_data["n_G1"])
-                    if "n_G2" in saved_data:
-                        n_G2_default = float(saved_data["n_G2"])
-                    if "n_G3" in saved_data:
-                        n_G3_default = float(saved_data["n_G3"])
-                    if "n_G4" in saved_data:
-                        n_G4_default = float(saved_data["n_G4"])
+                    if "n_eff_G1" in saved_data:
+                        n_eff_G1_default = float(saved_data["n_eff_G1"])
+                    if "n_eff_G2" in saved_data:
+                        n_eff_G2_default = float(saved_data["n_eff_G2"])
+                    if "n_eff_G3" in saved_data:
+                        n_eff_G3_default = float(saved_data["n_eff_G3"])
+                    if "n_eff_G4" in saved_data:
+                        n_eff_G4_default = float(saved_data["n_eff_G4"])
+                    if "delta_Hp_G4" in saved_data:
+                        delta_Hp_G4_default = float(saved_data["delta_Hp_G4"])
+                    if "v_eff_G1" in saved_data:
+                        v_eff_G1_default = float(saved_data["v_eff_G1"])
+                    if "v_eff_G2" in saved_data:
+                        v_eff_G2_default = float(saved_data["v_eff_G2"])
+                    if "v_eff_G3" in saved_data:
+                        v_eff_G3_default = float(saved_data["v_eff_G3"])
+                    if "v_eff_G4" in saved_data:
+                        v_eff_G4_default = float(saved_data["v_eff_G4"])
+                    if "d1_wide_min" in saved_data:
+                        d1_wide_min_default = float(saved_data["d1_wide_min"])
             except Exception as e:
                 print(f"读取上次配置失败: {e}")
 
@@ -290,14 +330,18 @@ class ZoomLensDesignerGUI:
         self.params['g2_thickness'].insert(0, str(g2_t_default))
         self.params['g3_thickness'].insert(0, str(g3_t_default))
         self.params['g4_thickness'].insert(0, str(g4_t_default))
-        self.params['n_G1'].insert(0, str(n_G1_default))
-        self.params['n_G2'].insert(0, str(n_G2_default))
-        self.params['n_G3'].insert(0, str(n_G3_default))
-        self.params['n_G4'].insert(0, str(n_G4_default))
-        self.params['n_G1'].insert(0, str(n_G1_default))
-        self.params['n_G2'].insert(0, str(n_G2_default))
-        self.params['n_G3'].insert(0, str(n_G3_default))
-        self.params['n_G4'].insert(0, str(n_G4_default))
+        # n_eff_G* 默认值（主用折射率字段）
+        self.params['n_eff_G1'].insert(0, str(n_eff_G1_default))
+        self.params['n_eff_G2'].insert(0, str(n_eff_G2_default))
+        self.params['n_eff_G3'].insert(0, str(n_eff_G3_default))
+        self.params['n_eff_G4'].insert(0, str(n_eff_G4_default))
+        # 新增字段默认值
+        self.params['delta_Hp_G4'].insert(0, str(delta_Hp_G4_default))
+        self.params['d1_wide_min'].insert(0, str(d1_wide_min_default))
+        self.params['v_eff_G1'].insert(0, str(v_eff_G1_default))
+        self.params['v_eff_G2'].insert(0, str(v_eff_G2_default))
+        self.params['v_eff_G3'].insert(0, str(v_eff_G3_default))
+        self.params['v_eff_G4'].insert(0, str(v_eff_G4_default))
 
         self.var_constant_f.set(constant_f_state)
         self.var_vig.set(vig_default)
@@ -513,10 +557,11 @@ class ZoomLensDesignerGUI:
 
         # 新代码
         save_data = {k: entry.get() for k, entry in self.params.items()}
-        save_data["constant_f"]  = self.var_constant_f.get()
-        save_data["vignetting"]  = self.var_vig.get()
-        save_data["stop_shift"]  = self.var_shift.get()
-        save_data["stop_group"]  = self.var_stop_group.get()
+        save_data["constant_f"]   = self.var_constant_f.get()
+        save_data["vignetting"]   = self.var_vig.get()
+        save_data["stop_shift"]   = self.var_shift.get()
+        save_data["stop_group"]   = self.var_stop_group.get()
+        save_data["d1_wide_min"]  = float(self.params['d1_wide_min'].get())
         
         try:
             with open("last_run_config.json", 'w', encoding='utf-8') as f:
@@ -546,10 +591,12 @@ class ZoomLensDesignerGUI:
                 g2_thickness      = float(self.params['g2_thickness'].get()),
                 g3_thickness      = float(self.params['g3_thickness'].get()),
                 g4_thickness      = float(self.params['g4_thickness'].get()),
-                n_G1              = float(self.params['n_G1'].get()),
-                n_G2              = float(self.params['n_G2'].get()),
-                n_G3              = float(self.params['n_G3'].get()),
-                n_G4              = float(self.params['n_G4'].get()),
+                delta_Hp_G4       = float(self.params['delta_Hp_G4'].get()),
+                d1_wide_min       = float(self.params['d1_wide_min'].get()),
+                v_eff_G1          = float(self.params['v_eff_G1'].get()),
+                v_eff_G2          = float(self.params['v_eff_G2'].get()),
+                v_eff_G3          = float(self.params['v_eff_G3'].get()),
+                v_eff_G4          = float(self.params['v_eff_G4'].get()),
             )
         except ValueError:
             messagebox.showerror("错误", "参数格式不正确，请检查所有输入框！")
@@ -670,10 +717,10 @@ class ZoomLensDesignerGUI:
         self._log(f"    实际 TTL = {ttl_actual:.2f} mm  (目标 {cfg.ttl_target}, 偏差 {(ttl_actual/cfg.ttl_target - 1)*100:+.1f}%)")
 
         P_sum = (
-            1.0 / (best_f1 * cfg.n_G1) +
-            1.0 / (f2 * cfg.n_G2) +
-            1.0 / (f3 * cfg.n_G3) +
-            1.0 / (best_f4 * cfg.n_G4)
+            (1.0 / best_f1) / cfg.n_eff_G1 +
+            (1.0 / f2)     / cfg.n_eff_G2 +
+            (1.0 / f3)     / cfg.n_eff_G3 +
+            (1.0 / best_f4) / cfg.n_eff_G4
         )
         R_pz = -1.0 / P_sum if P_sum != 0 else float('inf')
         self._log(f"    *系统佩兹伐和 (分组 n) = {P_sum:.4f}")

@@ -23,7 +23,8 @@ class ZoomLensOptimizer:
             'petzval': 5.0e5 * ratio,
             'smoothness': 50.0 / (ratio ** 2),
             'delta': 5.0e7 / (ratio ** 2),
-            'ca1_limit': 5.0e4 / ratio
+            'ca1_limit': 5.0e4 / ratio,
+            'chromatic': 3.0e5 * ratio,  # 组级色差软约束
         }
 
     def _compute_bounds(self):
@@ -60,6 +61,7 @@ class ZoomLensOptimizer:
         penalty += self._penalty_efl(efl)
         penalty += self._penalty_gaps(d1, d2, d3, CA1, CA2, CA3, CA4)
         penalty += self._penalty_petzval(f1_dyn, f2, f3, f4_dyn)
+        penalty += self._penalty_chromatic(f1_dyn, f2, f3, f4_dyn)
         penalty += self._penalty_monotonicity(z2, z3)
         penalty += self._penalty_smoothness(z3)
         penalty += self._penalty_ca1(CA1)
@@ -153,12 +155,13 @@ class ZoomLensOptimizer:
         p_efl = self._penalty_efl(efl)
         p_gaps = self._penalty_gaps(d1, d2, d3, CA1, CA2, CA3, CA4)
         p_petzval = self._penalty_petzval(f1_dyn, f2, f3, f4_dyn)
+        p_chrom = self._penalty_chromatic(f1_dyn, f2, f3, f4_dyn)
         p_mono = self._penalty_monotonicity(z2, z3)
         p_smooth = self._penalty_smoothness(z3)
         p_root = self._penalty_root_center(m3)
         p_ca1 = self._penalty_ca1(CA1)
 
-        total = p_delta + p_efl + p_gaps + p_petzval + p_mono + p_smooth + p_root + p_ca1
+        total = p_delta + p_efl + p_gaps + p_petzval + p_chrom + p_mono + p_smooth + p_root + p_ca1
 
         return {
             "总分 (Total)": total,
@@ -166,6 +169,7 @@ class ZoomLensOptimizer:
             "2. 焦距误差 (EFL)": p_efl,
             "3. 物理防撞 (Gaps)": p_gaps,
             "4. 场曲控制 (Petzval)": p_petzval,
+            "4b. 色差约束 (Chrom)": p_chrom,
             "5. G2单调性 (Mono)": p_mono,
             "6. 轨迹平滑 (Smooth)": p_smooth,
             "7. 换根失败 (Root)": p_root,
@@ -181,20 +185,43 @@ class ZoomLensOptimizer:
 
     def _penalty_gaps(self, d1, d2, d3, CA1, CA2, CA3, CA4) -> float:
         min_air_gap = 2.0
-        penalty  = np.sum(np.maximum(0.0, min_air_gap - d1) ** 2)
+
+        # d1 广角端（第一个位置）施加更严格的下限
+        # 原因：主平面修正量随玻璃选择变化最大可达 ±8mm，
+        # 需要足够的薄透镜间距余量保证机械气隙始终为正
+        d1_wide_min = self.config.d1_wide_min
+        penalty_d1_wide = max(0.0, d1_wide_min - d1[0]) ** 2
+        # 其余位置沿用标准下限
+        penalty  = penalty_d1_wide * 10.0  # 加强权重，广角端 d1 是硬约束
+        penalty += np.sum(np.maximum(0.0, min_air_gap - d1) ** 2)
         penalty += np.sum(np.maximum(0.0, min_air_gap - d2) ** 2)
         penalty += np.sum(np.maximum(0.0, min_air_gap - d3) ** 2)
         return penalty * self.weights['gaps']
 
     def _penalty_petzval(self, f1_dyn: float, f2: float, f3: float, f4_dyn: float) -> float:
-        cfg = self.config
+        # 各组使用独立等效折射率，而非统一假设或统一 n_G*
+        # 计算格式：(1/f_i) / n_eff_i
         P_sum = (
-            1.0 / (f1_dyn * cfg.n_G1) +
-            1.0 / (f2 * cfg.n_G2) +
-            1.0 / (f3 * cfg.n_G3) +
-            1.0 / (f4_dyn * cfg.n_G4)
+            (1.0 / f1_dyn) / self.config.n_eff_G1 +
+            (1.0 / f2)     / self.config.n_eff_G2 +
+            (1.0 / f3)     / self.config.n_eff_G3 +
+            (1.0 / f4_dyn) / self.config.n_eff_G4
         )
         return max(0.0, abs(P_sum) - 0.015) * self.weights['petzval']
+
+    def _penalty_chromatic(self, f1_dyn: float, f2: float, f3: float, f4_dyn: float) -> float:
+        """
+        组级初级色差软约束：Σ(φᵢ / Vᵢ) ≈ 0
+        φᵢ = 1/fᵢ 为各组光焦度，Vᵢ 为各组等效阿贝数。
+        该约束为软约束（惩罚项），不强制为零，允许小量残余。
+        """
+        chrom_sum = (
+            (1.0 / f1_dyn) / self.config.v_eff_G1 +
+            (1.0 / f2)     / self.config.v_eff_G2 +
+            (1.0 / f3)     / self.config.v_eff_G3 +
+            (1.0 / f4_dyn) / self.config.v_eff_G4
+        )
+        return chrom_sum ** 2 * self.weights['chromatic']
 
     def _penalty_monotonicity(self, z2: np.ndarray, z3: np.ndarray) -> float:
         def _mono(z):

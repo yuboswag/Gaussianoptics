@@ -6,7 +6,7 @@ config.py
 import warnings
 import platform
 import matplotlib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 warnings.filterwarnings("ignore", module="matplotlib")
 
 # ── 中文字体自动适配 ──────────────────────────────────────────
@@ -22,6 +22,7 @@ matplotlib.rcParams.update({'axes.unicode_minus': False})
 
 @dataclass
 class ZoomConfig:
+    # ── 基础光学规格 ─────────────────────────────────────────────
     f_wide: float = 10.0
     f_tele: float = 100.0
     bfd_target: float = 15.0
@@ -40,18 +41,28 @@ class ZoomConfig:
     # 渐晕控制
     vignetting: float = 0.5
     vignetting_tele: float = 0.8  # 长焦端渐晕系数
-    # 各组元轴向玻璃厚度估算（用于 BFD/TTL 修正，可在 GUI 中调整）
-    g1_thickness: float = 15.0   # G1 前固定组
-    g2_thickness: float = 9.0    # G2 变倍组
-    g3_thickness: float = 7.0    # G3 补偿组
-    g4_thickness: float = 21.0   # G4 后固定组
-    # 各组元等效折射率估算（用于 Petzval 场曲约束）
-    n_G1: float = 1.60    # G1 前固定组（H-LaK 正元件 + H-ZF 负元件胶合，加权等效 n）
-    n_G2: float = 1.80    # G2 变倍组（H-ZF52/H-ZLaF 高折射率火石为主）
-    n_G3: float = 1.65    # G3 补偿组（取决于构型，中等折射率）
-    n_G4: float = 1.65    # G4 后固定组（中高折射率冕牌为主）
-    # 各组总厚度（玻璃+组内间隔之和，mm），用于主平面→实际空气间隔转换
-    t_G1: float = 0.0
+    # ── 组元物理尺寸（用于主平面→空气间隔转换）───────────────────
+    g1_thickness: float = 15.0   # G1 前固定组玻璃轴向厚度估算
+    g2_thickness: float = 9.0    # G2 变倍组玻璃轴向厚度估算
+    g3_thickness: float = 7.0    # G3 补偿组玻璃轴向厚度估算
+    g4_thickness: float = 21.0   # G4 后固定组玻璃轴向厚度估算
+    t_G1: float = 0.0  # G1 总厚度（玻璃+间隔），0 时回退到 g1_thickness
     t_G2: float = 0.0
     t_G3: float = 0.0
     t_G4: float = 0.0
+    # ── Petzval 场曲约束相关 ───────────────────────────────────
+    n_eff_G1: float = 1.6   # G1 前固定正组（冕牌为主）
+    n_eff_G2: float = 1.8   # G2 变倍负组（火石为主）
+    n_eff_G3: float = 1.7   # G3 补偿组（混合）
+    n_eff_G4: float = 1.7   # G4 后固定正组（混合）
+    # G4 后主面相对组物理中心的偏移（mm）
+    delta_Hp_G4: float = 0.0  # 正值=主面偏像方，负值=主面偏物方
+    # d1（G1-G2间距）广角端最小薄透镜间距（mm）
+    # 需大于 min_air_gap + 最坏情况主平面修正量（约 8~10mm）
+    # 默认 12mm：确保任意玻璃组合下机械气隙始终不低于 2mm
+    d1_wide_min: float = 12.0
+    # ── 组级色差约束相关 ───────────────────────────────────────
+    v_eff_G1: float = 60.0  # G1 前固定组（低色散）
+    v_eff_G2: float = 30.0  # G2 变倍负组（高色散）
+    v_eff_G3: float = 50.0  # G3 补偿组
+    v_eff_G4: float = 55.0  # G4 后固定组
