@@ -80,8 +80,6 @@ class ZoomLensDesignerGUI:
             ("G4 等效折射率 n_eff₄", "n_eff_G4"),
             # 新增：G4 后主面偏移
             ("G4 后主面偏移 δH' (mm)", "delta_Hp_G4"),
-            # 新增：d1 广角端最小间距
-            ("d1广角端最小间距 (mm)", "d1_wide_min"),
             # 新增：等效阿贝数
             ("G1 等效阿贝数 V₁",     "v_eff_G1"),
             ("G2 等效阿贝数 V₂",     "v_eff_G2"),
@@ -276,7 +274,6 @@ class ZoomLensDesignerGUI:
         n_eff_G3_default  = 1.7
         n_eff_G4_default  = 1.7
         delta_Hp_G4_default = 0.0
-        d1_wide_min_default = 12.0
         v_eff_G1_default  = 60.0
         v_eff_G2_default  = 30.0
         v_eff_G3_default  = 50.0
@@ -316,8 +313,6 @@ class ZoomLensDesignerGUI:
                         v_eff_G3_default = float(saved_data["v_eff_G3"])
                     if "v_eff_G4" in saved_data:
                         v_eff_G4_default = float(saved_data["v_eff_G4"])
-                    if "d1_wide_min" in saved_data:
-                        d1_wide_min_default = float(saved_data["d1_wide_min"])
             except Exception as e:
                 print(f"读取上次配置失败: {e}")
 
@@ -337,7 +332,6 @@ class ZoomLensDesignerGUI:
         self.params['n_eff_G4'].insert(0, str(n_eff_G4_default))
         # 新增字段默认值
         self.params['delta_Hp_G4'].insert(0, str(delta_Hp_G4_default))
-        self.params['d1_wide_min'].insert(0, str(d1_wide_min_default))
         self.params['v_eff_G1'].insert(0, str(v_eff_G1_default))
         self.params['v_eff_G2'].insert(0, str(v_eff_G2_default))
         self.params['v_eff_G3'].insert(0, str(v_eff_G3_default))
@@ -561,8 +555,7 @@ class ZoomLensDesignerGUI:
         save_data["vignetting"]   = self.var_vig.get()
         save_data["stop_shift"]   = self.var_shift.get()
         save_data["stop_group"]   = self.var_stop_group.get()
-        save_data["d1_wide_min"]  = float(self.params['d1_wide_min'].get())
-        
+
         try:
             with open("last_run_config.json", 'w', encoding='utf-8') as f:
                 json.dump(save_data, f, indent=4)
@@ -592,7 +585,6 @@ class ZoomLensDesignerGUI:
                 g3_thickness      = float(self.params['g3_thickness'].get()),
                 g4_thickness      = float(self.params['g4_thickness'].get()),
                 delta_Hp_G4       = float(self.params['delta_Hp_G4'].get()),
-                d1_wide_min       = float(self.params['d1_wide_min'].get()),
                 v_eff_G1          = float(self.params['v_eff_G1'].get()),
                 v_eff_G2          = float(self.params['v_eff_G2'].get()),
                 v_eff_G3          = float(self.params['v_eff_G3'].get()),

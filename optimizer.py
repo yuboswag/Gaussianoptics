@@ -38,7 +38,7 @@ class ZoomLensOptimizer:
             (-2.0, -0.1),               # m2_W
             (-zoom_ratio * 2.0, -0.5),  # m2_T
             (0.7, 1.3),                 # f1_factor
-            (0.5, 2.0),                 # f4_factor
+            (0.5, 1.3),                 # f4_factor
         )
 
     def objective_function(self, params: np.ndarray) -> float:
@@ -70,9 +70,8 @@ class ZoomLensOptimizer:
         return penalty
 
     def optimize(self, callback=None, extra_seeds=None) -> bool:
-        # 原始系数列表：[1.15, 1.25, 1.35, 1.45, 1.55, 1.65]
-        # 为加速缩减为 3 个：1.2, 1.4, 1.6
-        ttl_candidates = [self.config.ttl_target * r for r in [1.2, 1.4, 1.6]]
+        # TTL 候选系数：包含目标值 1.0，并在±20%范围内密集采样
+        ttl_candidates = [self.config.ttl_target * r for r in [1.0, 1.1, 1.2]]
 
         if callback:
             callback(f"扫描 {len(ttl_candidates)} 个 TTL 候选值...")
@@ -89,14 +88,17 @@ class ZoomLensOptimizer:
 
             best_res_fun = float('inf')
             best_res_x = None
-            seeds = [42, 123, 7]  # 默认三种子
             if extra_seeds:
-                seeds.extend(extra_seeds)
+                # 第2轮起：只跑新种子，跳过结果恒定的固定种子
+                seeds = list(extra_seeds)
+            else:
+                # 第1轮：跑固定种子建立基线
+                seeds = [42, 123, 7]
             for s in seeds:
                 res = differential_evolution(
                     self.objective_function, bounds,
                     strategy='best1bin', maxiter=120, popsize=20,
-                    tol=0.005, seed=s, workers=1, disp=False
+                    tol=0.005, seed=s, workers=-1, disp=False
                 )
                 if res.fun < best_res_fun:
                     best_res_fun = res.fun
@@ -125,7 +127,14 @@ class ZoomLensOptimizer:
             options=dict(xatol=1e-6, fatol=1e-6, maxiter=5000)
         )
 
-        final_x = res_local.x if res_local.fun < best_fun else best_x
+        # Nelder-Mead 不尊重 bounds，对精修结果做边界裁剪
+        bounds = self._compute_bounds()
+        lower = np.array([b[0] for b in bounds])
+        upper = np.array([b[1] for b in bounds])
+        clipped_x = np.clip(res_local.x, lower, upper)
+
+        # 始终使用裁剪后的解（越界解不可信）
+        final_x = clipped_x
         self.best_params = final_x
         self.best_ttl = best_ttl
 
@@ -185,15 +194,7 @@ class ZoomLensOptimizer:
 
     def _penalty_gaps(self, d1, d2, d3, CA1, CA2, CA3, CA4) -> float:
         min_air_gap = 2.0
-
-        # d1 广角端（第一个位置）施加更严格的下限
-        # 原因：主平面修正量随玻璃选择变化最大可达 ±8mm，
-        # 需要足够的薄透镜间距余量保证机械气隙始终为正
-        d1_wide_min = self.config.d1_wide_min
-        penalty_d1_wide = max(0.0, d1_wide_min - d1[0]) ** 2
-        # 其余位置沿用标准下限
-        penalty  = penalty_d1_wide * 10.0  # 加强权重，广角端 d1 是硬约束
-        penalty += np.sum(np.maximum(0.0, min_air_gap - d1) ** 2)
+        penalty = np.sum(np.maximum(0.0, min_air_gap - d1) ** 2)
         penalty += np.sum(np.maximum(0.0, min_air_gap - d2) ** 2)
         penalty += np.sum(np.maximum(0.0, min_air_gap - d3) ** 2)
         return penalty * self.weights['gaps']
