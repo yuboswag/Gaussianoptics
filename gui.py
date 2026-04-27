@@ -363,6 +363,7 @@ class ZoomLensDesignerGUI:
 
         # 检查新字段是否存在（兼容旧版 simulator 未更新的情况）
         has_ray_data = ('h_m' in traj and 'u_in_m' in traj and 'u_out_m' in traj)
+        has_phys_ttl = 'phys_ttl' in traj
 
         # 计算 5 个位置的数组索引
         idx_wide = 0
@@ -386,6 +387,7 @@ class ZoomLensDesignerGUI:
             "d1 (G1-G2间距) (mm)",
             "d2 (G2-G3间距) (mm)",
             "d3 (G3-G4间距) (mm)",
+            "物理 TTL (mm)",
         ]
         if has_ray_data:
             # 边缘光线高度：各组元主面处
@@ -404,6 +406,7 @@ class ZoomLensDesignerGUI:
                 "d1 (G1-G2间距) (mm)":   f"{traj['d1'][i]:.3f}",
                 "d2 (G2-G3间距) (mm)":   f"{traj['d2'][i]:.3f}",
                 "d3 (G3-G4间距) (mm)":   f"{traj['d3'][i]:.3f}",
+                "物理 TTL (mm)":         f"{traj['phys_ttl'][i]:.2f}" if has_phys_ttl else "",
             }
             if has_ray_data:
                 # traj['h_m'] 形状为 (N, 4)，列顺序 G1~G4
@@ -706,7 +709,11 @@ class ZoomLensDesignerGUI:
 
         cfg = self.optimizer.config
         ttl_actual = self.optimizer.best_ttl
-        self._log(f"    实际 TTL = {ttl_actual:.2f} mm  (目标 {cfg.ttl_target}, 偏差 {(ttl_actual/cfg.ttl_target - 1)*100:+.1f}%)")
+        self._log(f"  优化器选 TTL (z_G4_ref+BFD) = {ttl_actual:.2f} mm (目标 {cfg.ttl_target}, 偏差 {(ttl_actual/cfg.ttl_target - 1)*100:+.1f}%)")
+        # 物理 TTL = 薄透镜 TTL + (t_G1 + t_G4)/2，因为 d1/d2/d3 已做半厚度修正
+        phys_ttl_val = ttl_actual + (sys_obj._t_G1 + sys_obj._t_G4) / 2.0
+        self._log(f"  物理 TTL (含组厚度) = {phys_ttl_val:.2f} mm (相对目标偏差 {(phys_ttl_val/cfg.ttl_target - 1)*100:+.1f}%)")
+        self._log(f"  半厚度补偿 = {(sys_obj._t_G1 + sys_obj._t_G4)/2.0:.2f} mm (= (t_G1 + t_G4) / 2)")
 
         P_sum = (
             (1.0 / best_f1) / cfg.n_eff_G1 +

@@ -73,6 +73,9 @@ class ZoomSystemSimulator:
             z2=z2, z3=z3, m3=m3_arr, m2=m2_arr, efl=efl_arr,
             root1_z3=z3_root1, root2_z3=z3_root2,
             ttl=np.full(N, self.config.ttl_target),
+            # 薄透镜 TTL 与物理 TTL（新增诊断，不改优化逻辑）
+            thin_ttl=np.full(N, self.z_G4_ref + bfd),
+            phys_ttl=np.full(N, self.z_G4_ref + bfd + (self._t_G1 + self._t_G4) / 2.0),
             CA1=CA1, CA2=CA2, CA3=CA3, CA4=CA4,
             d1=d1, d2=d2, d3=d3,  # 实际空气间隔（已扣除组厚度）
             d1_thin=d1_thin, d2_thin=d2_thin, d3_thin=d3_thin,  # 薄透镜主平面间距（供诊断）
