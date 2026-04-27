@@ -70,8 +70,9 @@ class ZoomLensOptimizer:
         return penalty
 
     def optimize(self, callback=None, extra_seeds=None) -> bool:
-        # TTL 候选系数：包含目标值 1.0，并在±20%范围内密集采样
-        ttl_candidates = [self.config.ttl_target * r for r in [1.0, 1.1, 1.2]]
+        # TTL 候选系数：覆盖 0.95×~1.5× 范围，扫描紧凑到宽松设计
+        ttl_candidates = [self.config.ttl_target * r for r in [0.95, 1.0, 1.05, 1.1, 1.2, 1.3, 1.4, 1.5]]
+        ttl_max = self.config.ttl_target * 1.5
 
         if callback:
             callback(f"扫描 {len(ttl_candidates)} 个 TTL 候选值...")
@@ -104,8 +105,13 @@ class ZoomLensOptimizer:
                     best_res_fun = res.fun
                     best_res_x = res.x.copy()
 
-            ttl_dev = ((ttl_val - self.config.ttl_target) / self.config.ttl_target) ** 2
-            total = best_res_fun + ttl_dev * 1.0e5
+            # 基于物理 TTL（含半厚度补偿）的双层惩罚
+            phys_ttl = ttl_val + (self.system._t_G1 + self.system._t_G4) / 2.0
+            ttl_over = max(0.0, phys_ttl - ttl_max)
+            penalty_ttl_hard = (ttl_over ** 2) * 1.0e7
+            ttl_dev_norm = (phys_ttl - self.config.ttl_target) / self.config.ttl_target
+            penalty_ttl_soft = (ttl_dev_norm ** 2) * 1.0e3
+            total = best_res_fun + penalty_ttl_hard + penalty_ttl_soft
 
             if callback:
                 callback(f"  TTL={ttl_val:.0f} -> {total:.2e}")
@@ -137,6 +143,7 @@ class ZoomLensOptimizer:
         final_x = clipped_x
         self.best_params = final_x
         self.best_ttl = best_ttl
+        self.best_phys_ttl = best_ttl + (self.system._t_G1 + self.system._t_G4) / 2.0
 
         f2, f3, m2_W, m2_T, f1_fac, f4_fac = final_x
         f1_dyn = self.config.f1 * f1_fac

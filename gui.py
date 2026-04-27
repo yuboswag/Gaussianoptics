@@ -714,6 +714,10 @@ class ZoomLensDesignerGUI:
         phys_ttl_val = ttl_actual + (sys_obj._t_G1 + sys_obj._t_G4) / 2.0
         self._log(f"  物理 TTL (含组厚度) = {phys_ttl_val:.2f} mm (相对目标偏差 {(phys_ttl_val/cfg.ttl_target - 1)*100:+.1f}%)")
         self._log(f"  半厚度补偿 = {(sys_obj._t_G1 + sys_obj._t_G4)/2.0:.2f} mm (= (t_G1 + t_G4) / 2)")
+        ttl_max_val = cfg.ttl_target * 1.5
+        self._log(f"  TTL 硬上限 (1.5 × 目标) = {ttl_max_val:.2f} mm")
+        if phys_ttl_val > ttl_max_val:
+            self._log(f"  ⚠️ 物理 TTL 超过硬上限 {phys_ttl_val - ttl_max_val:.2f} mm")
 
         P_sum = (
             (1.0 / best_f1) / cfg.n_eff_G1 +
