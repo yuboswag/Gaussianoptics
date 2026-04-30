@@ -437,6 +437,22 @@ class ZoomLensDesignerGUI:
                     f.write(f"# SENSOR_SIZE={self.params['sensor_size'].get()}\n")
                 except (KeyError, AttributeError):
                     pass  # 参数不存在时跳过，不影响主数据
+
+                # ── 各组元焦距与通光口径（供 Action_a 自动读取填入 GUI）──
+                # 焦距：traj 中 f1/f2/f3/f4 为标量常量（不随变焦位置变化）
+                # 口径：traj 中 CA1~CA4 为 numpy 数组，取 max 作为组通光口径
+                try:
+                    f.write(f"# F_G1={traj['f1']:.3f}\n")
+                    f.write(f"# F_G2={traj['f2']:.3f}\n")
+                    f.write(f"# F_G3={traj['f3']:.3f}\n")
+                    f.write(f"# F_G4={traj['f4']:.3f}\n")
+                    f.write(f"# D_G1={float(max(traj['CA1'])):.2f}\n")
+                    f.write(f"# D_G2={float(max(traj['CA2'])):.2f}\n")
+                    f.write(f"# D_G3={float(max(traj['CA3'])):.2f}\n")
+                    f.write(f"# D_G4={float(max(traj['CA4'])):.2f}\n")
+                except (KeyError, TypeError):
+                    pass  # traj 缺字段时跳过，不影响主数据
+
                 writer = csv.DictWriter(f, fieldnames=headers)
                 writer.writeheader()
                 writer.writerows(export_data)
