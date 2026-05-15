@@ -15,9 +15,9 @@ class ZoomLensOptimizer:
         ratio = current_scale / ref_scale
 
         self.weights = {
-            'efl': 5.0e4,
+            'efl': 5.0e5,
             'root_force': 1.0e9,
-            'root_center': 1.0e6,
+            'root_center': 1.0e4,
             'gaps': 5.0e7 / ratio,
             'monotonicity': 1.0e5 / ratio,
             'petzval': 5.0e5 * ratio,
@@ -51,6 +51,10 @@ class ZoomLensOptimizer:
         f4_dyn = self.config.f4 * f4_fac
 
         traj = self.system.zoom_sweep(f2, f3, m2_W, m2_T, f1_dyn, f4_dyn)
+
+        # 数学越界（G3 无实数解）→ 直接返回大 penalty，避免虚假 m3 解污染下游 EFL
+        if traj['delta_violation'] > 0:
+            return 1e9 + traj['delta_violation'] * 1e6
 
         z2, z3, efl, m3 = traj['z2'], traj['z3'], traj['efl'], traj['m3']
         d1, d2, d3 = traj['d1'], traj['d2'], traj['d3']
