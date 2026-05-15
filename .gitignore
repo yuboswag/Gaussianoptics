@@ -31,3 +31,5 @@ Desktop.ini
 # Logs and temp
 *.log
 *.tmp
+# Claude Code local settings
+.claude/

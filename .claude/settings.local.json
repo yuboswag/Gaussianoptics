@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(python test_penalty_diag.py)",
-      "Bash(python:*)",
-      "Bash(rtk python *)"
-    ]
-  }
-}
