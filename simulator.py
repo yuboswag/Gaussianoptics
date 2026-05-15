@@ -64,8 +64,10 @@ class ZoomSystemSimulator:
         #   h_m     — 各组元入射处边缘光线高度，shape (N, 4)
         #   u_in_m  — 各组元折射前边缘光线角度，shape (N, 4)
         #   u_out_m — 各组元折射后边缘光线角度，shape (N, 4)
+        # 近轴光线追迹用主面间距 d_thin（薄透镜模型的标准做法）
+        # d1/d2/d3 是实际空气间隔，仅用于物理防撞惩罚和导出，不参与追迹
         CA1, CA2, CA3, CA4, h_m, u_in_m, u_out_m = self._paraxial_ca(
-            f1, f2, f3, f4, d1, d2, d3, efl_arr, N
+            f1, f2, f3, f4, d1_thin, d2_thin, d3_thin, efl_arr, N
         )
 
         return dict(
