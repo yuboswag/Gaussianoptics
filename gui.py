@@ -65,10 +65,6 @@ class ZoomLensDesignerGUI:
             ("长焦 F 数 (T)",        "f_number_tele"),
             ("G1最大限宽 CA1 (mm)",  "max_ca1"),
             ("采样点数 N",           "num_pos"),
-            ("G1组厚度 t_G1 (mm)",   "t_G1"),
-            ("G2组厚度 t_G2 (mm)",   "t_G2"),
-            ("G3组厚度 t_G3 (mm)",   "t_G3"),
-            ("G4组厚度 t_G4 (mm)",   "t_G4"),
             ("G1 组厚度估算 (mm)",   "g1_thickness"),
             ("G2 组厚度估算 (mm)",   "g2_thickness"),
             ("G3 组厚度估算 (mm)",   "g3_thickness"),
@@ -80,6 +76,8 @@ class ZoomLensDesignerGUI:
             ("G4 等效折射率 n_eff₄", "n_eff_G4"),
             # 新增：G4 后主面偏移
             ("G4 后主面偏移 δH' (mm)", "delta_Hp_G4"),
+            # 新增：BFL 工程下限（仅供 gauss_to_lens 诊断使用，不影响本工具求解）
+            ("BFL 下限 (mm)", "bfl_min"),
             # 新增：等效阿贝数
             ("G1 等效阿贝数 V₁",     "v_eff_G1"),
             ("G2 等效阿贝数 V₂",     "v_eff_G2"),
@@ -258,7 +256,8 @@ class ZoomLensDesignerGUI:
             bfd_target="10.0", f1="80.0", f4="25.0",
             sensor_size="7.6", f_number="5.0",
             f_number_tele="5.0", max_ca1="40.0",
-            num_pos="61"
+            num_pos="61",
+            bfl_min="8.0",
         )
         # 新代码
         constant_f_state  = True
@@ -278,7 +277,6 @@ class ZoomLensDesignerGUI:
         v_eff_G2_default  = 30.0
         v_eff_G3_default  = 50.0
         v_eff_G4_default  = 55.0
-
         config_file = "last_run_config.json"
         if os.path.exists(config_file):
             try:
@@ -387,6 +385,9 @@ class ZoomLensDesignerGUI:
             "d1 (G1-G2间距) (mm)",
             "d2 (G2-G3间距) (mm)",
             "d3 (G3-G4间距) (mm)",
+            "d1_主面间距 (Paraxial验证) (mm)",
+            "d2_主面间距 (Paraxial验证) (mm)",
+            "d3_主面间距 (Paraxial验证) (mm)",
             "物理 TTL (mm)",
         ]
         if has_ray_data:
@@ -406,6 +407,9 @@ class ZoomLensDesignerGUI:
                 "d1 (G1-G2间距) (mm)":   f"{traj['d1'][i]:.3f}",
                 "d2 (G2-G3间距) (mm)":   f"{traj['d2'][i]:.3f}",
                 "d3 (G3-G4间距) (mm)":   f"{traj['d3'][i]:.3f}",
+                "d1_主面间距 (Paraxial验证) (mm)": f"{traj['d1_thin'][i]:.3f}",
+                "d2_主面间距 (Paraxial验证) (mm)": f"{traj['d2_thin'][i]:.3f}",
+                "d3_主面间距 (Paraxial验证) (mm)": f"{traj['d3_thin'][i]:.3f}",
                 "物理 TTL (mm)":         f"{traj['phys_ttl'][i]:.2f}" if has_phys_ttl else "",
             }
             if has_ray_data:
@@ -435,6 +439,17 @@ class ZoomLensDesignerGUI:
                     f.write(f"# F_NUMBER_WIDE={self.params['f_number'].get()}\n")
                     f.write(f"# F_NUMBER_TELE={self.params['f_number_tele'].get()}\n")
                     f.write(f"# SENSOR_SIZE={self.params['sensor_size'].get()}\n")
+                except (KeyError, AttributeError):
+                    pass  # 参数不存在时跳过，不影响主数据
+
+                # ── 供 gauss_to_lens 端使用的 BFD / δH'_G4 / BFL_MIN 三联 ────
+                # BFD_TARGET   : 写入 Zemax LDE 的末段空气厚度（可负）
+                # DELTA_HP_G4  : gauss_to_lens 端 G4 候选筛选层的软约束目标值
+                # BFL_MIN      : 物理 BFL 的工程下限，仅供 gauss_to_lens 端诊断警告
+                try:
+                    f.write(f"# BFD_TARGET={self.params['bfd_target'].get()}\n")
+                    f.write(f"# DELTA_HP_G4={self.params['delta_Hp_G4'].get()}\n")
+                    f.write(f"# BFL_MIN={self.params['bfl_min'].get()}\n")
                 except (KeyError, AttributeError):
                     pass  # 参数不存在时跳过，不影响主数据
 
@@ -529,17 +544,15 @@ class ZoomLensDesignerGUI:
             bfd = float(self.params['bfd_target'].get())
             f1_est = 0.8 * ttl
             f4_est = 2.5 * bfd
-            
-            # 更新 f1 (即使是只读的，也要先解锁才能修改)
+
             self.params['f1'].config(state='normal')
             self.params['f1'].delete(0, tk.END)
             self.params['f1'].insert(0, f"{f1_est:.1f}")
             self.params['f1'].config(state='readonly')
-            
-            # 更新 f4
+
             self.params['f4'].delete(0, tk.END)
             self.params['f4'].insert(0, f"{f4_est:.1f}")
-            
+
             self._log(f" 已应用光学经验公式：f1≈{f1_est:.1f}, f4={f4_est:.1f}")
         except ValueError:
             messagebox.showwarning("提示", "请先输入有效的 TTL 和 BFD！")
@@ -603,6 +616,10 @@ class ZoomLensDesignerGUI:
                 g2_thickness      = float(self.params['g2_thickness'].get()),
                 g3_thickness      = float(self.params['g3_thickness'].get()),
                 g4_thickness      = float(self.params['g4_thickness'].get()),
+                n_eff_G1          = float(self.params['n_eff_G1'].get()),
+                n_eff_G2          = float(self.params['n_eff_G2'].get()),
+                n_eff_G3          = float(self.params['n_eff_G3'].get()),
+                n_eff_G4          = float(self.params['n_eff_G4'].get()),
                 delta_Hp_G4       = float(self.params['delta_Hp_G4'].get()),
                 v_eff_G1          = float(self.params['v_eff_G1'].get()),
                 v_eff_G2          = float(self.params['v_eff_G2'].get()),
