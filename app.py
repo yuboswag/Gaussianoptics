@@ -14,8 +14,6 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 # 中文字体（Linux 容器需装 fonts-noto-cjk，本机用系统已有字体）
-plt.rcParams['font.sans-serif'] = ['Noto Sans CJK SC', 'Noto Sans CJK JP', 'Microsoft YaHei', 'SimHei', 'DejaVu Sans']
-plt.rcParams['axes.unicode_minus'] = False
 import numpy as np
 
 from optimizer import ZoomLensOptimizer
@@ -48,7 +46,7 @@ DEFAULTS = {
 # ==================== 绘图（搬自 gui.py:786-825）====================
 def plot_trajectory(traj, sys_obj, cfg):
     fig = plt.Figure(figsize=(10, 8))
-    fig.suptitle('四组元变焦系统运动学与物理口径分析', fontsize=13)
+    fig.suptitle('4-Group Zoom Lens Kinematics & Aperture Analysis', fontsize=13)
     ax1 = fig.add_subplot(2, 2, 1)
     ax2 = fig.add_subplot(2, 2, 2)
     ax3 = fig.add_subplot(2, 2, 3)
@@ -61,12 +59,12 @@ def plot_trajectory(traj, sys_obj, cfg):
     if 'root1_z3' in traj:
         ax1.plot(x, traj['root1_z3'], '.', color='#CCCCCC', markersize=2)
         ax1.plot(x, traj['root2_z3'], '.', color='#AAAAAA', markersize=2)
-    ax1.plot(x, traj['z3'], 'r-', linewidth=2, label='G3 (补偿)')
-    ax1.plot(x, traj['z2'], 'b--', linewidth=2, label='G2 (变倍)')
+    ax1.plot(x, traj['z3'], 'r-', linewidth=2, label='G3 (Compensator)')
+    ax1.plot(x, traj['z2'], 'b--', linewidth=2, label='G2 (Variator)')
     ax1.axhline(sys_obj.z_G1, color='k', linestyle=':', label='G1')
     ax1.axhline(sys_obj.z_G4_ref, color='g', linestyle=':', label='G4')
-    ax1.set_title('凸轮曲线运动轨迹')
-    ax1.set_ylabel('透镜位置 z (mm)')
+    ax1.set_title('Cam Curve Trajectories')
+    ax1.set_ylabel('Lens position z (mm)')
     ax1.legend(loc='best', fontsize=8)
     ax1.grid(True, alpha=0.3)
 
@@ -75,13 +73,13 @@ def plot_trajectory(traj, sys_obj, cfg):
     ax2.axhline(cfg.f_wide, color='r', linestyle='--')
     ax2.axhline(cfg.f_tele, color='b', linestyle='--')
     ax2.set_yscale('log')
-    ax2.set_title('系统焦距 EFL 验证')
+    ax2.set_title('System EFL Verification')
     ax2.grid(True, which='both', alpha=0.3)
 
     # G3 放大率
     ax3.plot(x, traj['m3'], 'm-', linewidth=2)
     ax3.axhline(-1.0, color='r', linestyle='--')
-    ax3.set_title('G3 放大率 m3')
+    ax3.set_title('G3 Magnification m3')
     ax3.grid(True, alpha=0.3)
 
     # 通光口径
@@ -90,8 +88,8 @@ def plot_trajectory(traj, sys_obj, cfg):
     ax4.plot(x, traj['CA3'], 'r-', label='CA3')
     ax4.plot(x, traj['CA4'], 'g-', label='CA4')
     max_ca1_val = float(np.max(traj['CA1']))
-    ax4.set_title(f'各组通光孔径需求 (G1 Max: {max_ca1_val:.1f}mm)')
-    ax4.set_ylabel('直径 CA (mm)')
+    ax4.set_title(f'Group Aperture Requirements (G1 Max: {max_ca1_val:.1f}mm)')
+    ax4.set_ylabel('Diameter CA (mm)')
     ax4.legend(loc='best', fontsize=8)
     ax4.grid(True, alpha=0.3)
 
