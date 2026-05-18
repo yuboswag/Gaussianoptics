@@ -245,8 +245,11 @@ def build_ui():
     with gr.Blocks(title="Gaussianoptics 变焦镜头自动设计") as demo:
         gr.Markdown(
             "# 四组元变焦镜头自动设计 (Gaussianoptics)\n\n"
-            "基于薄透镜近似 + 差分进化优化，自动生成变焦镜头的初始结构参数。\n"
-            "输入光学规格 → 选择优化轮数 → 点击 **🚀 开始优化** → 等待结果（N=61 时单轮约 2.3 分钟）。"
+            "**中文**：基于薄透镜近似 + 差分进化优化，自动生成变焦镜头的高斯解初始结构参数与凸轮曲线。"
+            "输入光学规格 → 选择优化轮数 → 点击 **🚀 开始优化** → 等待结果。\n\n"
+            "**English**: Auto-generate Gaussian-optics initial structure parameters and cam curves for zoom lenses "
+            "using thin-lens approximation + differential evolution. "
+            "Enter optical specs → select number of optimization rounds → click **🚀 Start Optimization** → wait for results."
         )
         with gr.Row():
             with gr.Column(scale=1):
