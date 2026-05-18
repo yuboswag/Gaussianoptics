@@ -9,7 +9,7 @@ python_version: '3.13'
 app_file: app.py
 pinned: false
 license: mit
-short_description: Auto-design 4-group zoom lens initial structures via Gaussian optics + differential evolution
+short_description: Auto-design 4-group zoom lens
 ---
 
 # Gaussianoptics — 四组元变焦镜头初始结构自动设计
