@@ -37,7 +37,7 @@ DEFAULTS = {
     'n_eff_G3': 1.65, 'n_eff_G4': 1.65,
     'v_eff_G1': 50.0, 'v_eff_G2': 30.0,
     'v_eff_G3': 50.0, 'v_eff_G4': 50.0,
-    'stop_shift': 0.0, 'stop_group': 2,
+    'stop_shift': 0.0, 'stop_group': 3,
     'vignetting': 0.7, 'constant_f_number': False,
 }
 
