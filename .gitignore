@@ -33,3 +33,15 @@ Desktop.ini
 *.tmp
 # Claude Code local settings
 .claude/
+
+# Local-only test/benchmark scripts (not deployed to remote)
+test_bfd_fix.py
+test_optimizer_baseline.py
+test_optimizer_bfd.py
+test_penalty_diag.py
+test_ttl_soft.py
+bench_fastde.py
+bench_headless.py
+
+# Local-only runtime config (GUI saves last params here)
+last_run_config.json
