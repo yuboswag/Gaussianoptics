@@ -3,6 +3,10 @@ from scipy.optimize import differential_evolution, minimize
 from config import ZoomConfig
 from simulator import ZoomSystemSimulator
 
+import os as _os
+
+_DE_WORKERS = min(int(_os.environ.get('GAUSSIAN_DE_WORKERS', '0')) or (_os.cpu_count() or 2), _os.cpu_count() or 2)
+
 class ZoomLensOptimizer:
     def __init__(self, config: ZoomConfig):
         self.config = config
@@ -103,7 +107,7 @@ class ZoomLensOptimizer:
                 res = differential_evolution(
                     self.objective_function, bounds,
                     strategy='best1bin', maxiter=120, popsize=20,
-                    tol=0.005, seed=s, workers=-1, disp=False
+                    tol=0.005, seed=s, workers=_DE_WORKERS, disp=False
                 )
                 if res.fun < best_res_fun:
                     best_res_fun = res.fun
