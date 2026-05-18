@@ -337,4 +337,4 @@ def build_ui():
 
 if __name__ == "__main__":
     demo = build_ui()
-    demo.queue().launch()
+    demo.queue().launch(ssr_mode=False)
