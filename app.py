@@ -13,6 +13,9 @@ import gradio as gr
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+# 中文字体（Linux 容器需装 fonts-noto-cjk，本机用系统已有字体）
+plt.rcParams['font.sans-serif'] = ['Noto Sans CJK SC', 'Noto Sans CJK JP', 'Microsoft YaHei', 'SimHei', 'DejaVu Sans']
+plt.rcParams['axes.unicode_minus'] = False
 import numpy as np
 
 from optimizer import ZoomLensOptimizer
