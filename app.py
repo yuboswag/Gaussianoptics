@@ -254,70 +254,70 @@ def build_ui():
         )
         with gr.Row():
             with gr.Column(scale=1):
-                gr.Markdown("### 基本光学参数")
+                gr.Markdown("### 基本光学参数 / Basic Optical Parameters")
                 with gr.Row():
-                    f_wide = gr.Number(label="广角焦距 f_wide (mm)", value=DEFAULTS['f_wide'])
-                    f_tele = gr.Number(label="长焦焦距 f_tele (mm)", value=DEFAULTS['f_tele'])
+                    f_wide = gr.Number(label="广角焦距 f_wide (mm)", info="Wide focal length", value=DEFAULTS['f_wide'])
+                    f_tele = gr.Number(label="长焦焦距 f_tele (mm)", info="Tele focal length", value=DEFAULTS['f_tele'])
                 with gr.Row():
-                    ttl_target = gr.Number(label="总长 TTL (mm)", value=DEFAULTS['ttl_target'])
-                    bfd_target = gr.Number(label="后焦距 BFD (mm)", value=DEFAULTS['bfd_target'])
+                    ttl_target = gr.Number(label="总长 TTL (mm)", info="Total track length", value=DEFAULTS['ttl_target'])
+                    bfd_target = gr.Number(label="后焦距 BFD (mm)", info="Back focal distance", value=DEFAULTS['bfd_target'])
                 with gr.Row():
-                    f1 = gr.Number(label="前组焦距 f1 (mm)", value=DEFAULTS['f1'])
-                    f4 = gr.Number(label="后组焦距 f4 (mm)", value=DEFAULTS['f4'])
+                    f1 = gr.Number(label="前组焦距 f1 (mm)", info="Front group focal length", value=DEFAULTS['f1'])
+                    f4 = gr.Number(label="后组焦距 f4 (mm)", info="Rear group focal length", value=DEFAULTS['f4'])
                 with gr.Row():
-                    sensor_size = gr.Number(label="像面直径 (mm)", value=DEFAULTS['sensor_size'])
-                    num_positions = gr.Number(label="采样点数 N", value=DEFAULTS['num_positions'], precision=0)
+                    sensor_size = gr.Number(label="像面直径 (mm)", info="Image diameter", value=DEFAULTS['sensor_size'])
+                    num_positions = gr.Number(label="采样点数 N", info="Number of sample points", value=DEFAULTS['num_positions'], precision=0)
                 with gr.Row():
-                    f_number = gr.Number(label="广角 F# (W)", value=DEFAULTS['f_number'])
-                    f_number_tele = gr.Number(label="长焦 F# (T)", value=DEFAULTS['f_number_tele'])
-                max_ca1 = gr.Number(label="G1 最大宽度 CA1 (mm)", value=DEFAULTS['max_ca1'])
+                    f_number = gr.Number(label="广角 F# (W)", info="F-number at wide end", value=DEFAULTS['f_number'])
+                    f_number_tele = gr.Number(label="长焦 F# (T)", info="F-number at tele end", value=DEFAULTS['f_number_tele'])
+                max_ca1 = gr.Number(label="G1 最大宽度 CA1 (mm)", info="Max G1 clear aperture", value=DEFAULTS['max_ca1'])
 
                 with gr.Accordion("高级参数（点击展开）", open=False):
-                    gr.Markdown("**组元厚度 (mm)**")
+                    gr.Markdown("**组元厚度 / Group Thickness (mm)**")
                     with gr.Row():
                         g1_t = gr.Number(label="t_G1", value=DEFAULTS['g1_thickness'])
                         g2_t = gr.Number(label="t_G2", value=DEFAULTS['g2_thickness'])
                         g3_t = gr.Number(label="t_G3", value=DEFAULTS['g3_thickness'])
                         g4_t = gr.Number(label="t_G4", value=DEFAULTS['g4_thickness'])
-                    gr.Markdown("**等效折射率 n_eff**")
+                    gr.Markdown("**等效折射率 / Effective Refractive Index n_eff**")
                     with gr.Row():
                         n_g1 = gr.Number(label="G1", value=DEFAULTS['n_eff_G1'])
                         n_g2 = gr.Number(label="G2", value=DEFAULTS['n_eff_G2'])
                         n_g3 = gr.Number(label="G3", value=DEFAULTS['n_eff_G3'])
                         n_g4 = gr.Number(label="G4", value=DEFAULTS['n_eff_G4'])
-                    gr.Markdown("**等效阿贝数 v_eff**")
+                    gr.Markdown("**等效阿贝数 / Effective Abbe Number v_eff**")
                     with gr.Row():
                         v_g1 = gr.Number(label="G1", value=DEFAULTS['v_eff_G1'])
                         v_g2 = gr.Number(label="G2", value=DEFAULTS['v_eff_G2'])
                         v_g3 = gr.Number(label="G3", value=DEFAULTS['v_eff_G3'])
                         v_g4 = gr.Number(label="G4", value=DEFAULTS['v_eff_G4'])
-                    gr.Markdown("**光阑与渐晕**")
+                    gr.Markdown("**光阑与渐晕 / Stop & Vignetting**")
                     with gr.Row():
-                        stop_shift = gr.Number(label="光阑偏移 (mm)", value=DEFAULTS['stop_shift'])
-                        stop_group = gr.Number(label="光阑组号 (1-4)", value=DEFAULTS['stop_group'], precision=0)
+                        stop_shift = gr.Number(label="光阑偏移 (mm)", info="Stop shift", value=DEFAULTS['stop_shift'])
+                        stop_group = gr.Number(label="光阑组号 (1-4)", info="Stop group index (1-4)", value=DEFAULTS['stop_group'], precision=0)
                     with gr.Row():
-                        vignetting = gr.Slider(label="渐晕系数", minimum=0.0, maximum=1.0,
+                        vignetting = gr.Slider(label="渐晕系数 / Vignetting Factor", minimum=0.0, maximum=1.0,
                                                step=0.05, value=DEFAULTS['vignetting'])
-                        constant_f = gr.Checkbox(label="恒定 F#", value=DEFAULTS['constant_f_number'])
+                        constant_f = gr.Checkbox(label="恒定 F# / Constant F-number", value=DEFAULTS['constant_f_number'])
 
-                gr.Markdown("### 优化设置")
+                gr.Markdown("### 优化设置 / Optimization Settings")
                 n_rounds = gr.Radio(
                     choices=[
-                        ("快速（1 轮，约 4-5 分钟）", 1),
-                        ("标准（3 轮，约 12-15 分钟）", 3),
-                        ("精细（6 轮,  约 25-30 分钟）", 6),
+                        ("快速 / Fast (1 round, ~4-5 min)", 1),
+                        ("标准 / Standard (3 rounds, ~12-15 min)", 3),
+                        ("精细 / Refined (6 rounds, ~25-30 min)", 6),
                     ],
                     value=1,
-                    label="优化轮数",
+                    label="优化轮数 / Optimization Rounds",
                 )
-                run_btn = gr.Button("🚀 开始优化", variant="primary", size="lg")
+                run_btn = gr.Button("🚀 开始优化 / Start Optimization", variant="primary", size="lg")
 
             with gr.Column(scale=1):
-                gr.Markdown("### 优化日志")
+                gr.Markdown("### 优化日志 / Optimization Log")
                 log_output = gr.Textbox(label="", lines=20, max_lines=30, interactive=False)
-                gr.Markdown("### 变焦曲线分析")
+                gr.Markdown("### 变焦曲线分析 / Zoom Curve Analysis")
                 plot_output = gr.Plot(label="")
-                csv_output = gr.File(label="下载结果 CSV", interactive=False)
+                csv_output = gr.File(label="下载结果 CSV / Download CSV", interactive=False)
 
         run_btn.click(
             fn=run_optimization,
