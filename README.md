@@ -1,5 +1,5 @@
 ---
-title: Gaussianoptics 四组元变焦镜头自动设计
+title: "四组元正组补偿连续变焦镜头高斯解计算"
 emoji: 🔭
 colorFrom: blue
 colorTo: indigo
@@ -12,7 +12,7 @@ license: mit
 short_description: Auto-design 4-group zoom lens
 ---
 
-# Gaussianoptics — 四组元变焦镜头初始结构自动设计
+# 四组元正组补偿连续变焦镜头高斯解计算 / Gaussian Solver for 4-Group Positive-Compensator Continuous Zoom Lens
 
 > ⚠️ **WIP / research-grade**: This project is under active research and development. Optimization quality, parameter defaults, and UI are subject to change. Results are intended as **starting points for further refinement in Zemax / CODE V**, not as production-ready lens designs.
 
