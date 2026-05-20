@@ -440,6 +440,7 @@ class ZoomLensDesignerGUI:
                 # BFD_TARGET   : 写入 Zemax LDE 的末段空气厚度（可负）
                 try:
                     f.write(f"# BFL_Ideal={self.params['bfd_target'].get()}\n")
+                    f.write(f"# TTL_Ideal={self.params['ttl_target'].get()}\n")
                 except (KeyError, AttributeError):
                     pass  # 参数不存在时跳过，不影响主数据
 
