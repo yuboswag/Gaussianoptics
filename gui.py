@@ -9,6 +9,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import json    
 import os
+import time
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -75,9 +76,7 @@ class ZoomLensDesignerGUI:
             ("G3 等效折射率 n_eff₃", "n_eff_G3"),
             ("G4 等效折射率 n_eff₄", "n_eff_G4"),
             # 新增：G4 后主面偏移
-            ("G4 后主面偏移 δH' (mm)", "delta_Hp_G4"),
             # 新增：BFL 工程下限（仅供 gauss_to_lens 诊断使用，不影响本工具求解）
-            ("BFL 下限 (mm)", "bfl_min"),
             # 新增：等效阿贝数
             ("G1 等效阿贝数 V₁",     "v_eff_G1"),
             ("G2 等效阿贝数 V₂",     "v_eff_G2"),
@@ -257,7 +256,6 @@ class ZoomLensDesignerGUI:
             sensor_size="7.6", f_number="5.0",
             f_number_tele="5.0", max_ca1="40.0",
             num_pos="61",
-            bfl_min="8.0",
         )
         # 新代码
         constant_f_state  = True
@@ -272,7 +270,6 @@ class ZoomLensDesignerGUI:
         n_eff_G2_default  = 1.8
         n_eff_G3_default  = 1.7
         n_eff_G4_default  = 1.7
-        delta_Hp_G4_default = 0.0
         v_eff_G1_default  = 60.0
         v_eff_G2_default  = 30.0
         v_eff_G3_default  = 50.0
@@ -301,8 +298,6 @@ class ZoomLensDesignerGUI:
                         n_eff_G3_default = float(saved_data["n_eff_G3"])
                     if "n_eff_G4" in saved_data:
                         n_eff_G4_default = float(saved_data["n_eff_G4"])
-                    if "delta_Hp_G4" in saved_data:
-                        delta_Hp_G4_default = float(saved_data["delta_Hp_G4"])
                     if "v_eff_G1" in saved_data:
                         v_eff_G1_default = float(saved_data["v_eff_G1"])
                     if "v_eff_G2" in saved_data:
@@ -329,7 +324,6 @@ class ZoomLensDesignerGUI:
         self.params['n_eff_G3'].insert(0, str(n_eff_G3_default))
         self.params['n_eff_G4'].insert(0, str(n_eff_G4_default))
         # 新增字段默认值
-        self.params['delta_Hp_G4'].insert(0, str(delta_Hp_G4_default))
         self.params['v_eff_G1'].insert(0, str(v_eff_G1_default))
         self.params['v_eff_G2'].insert(0, str(v_eff_G2_default))
         self.params['v_eff_G3'].insert(0, str(v_eff_G3_default))
@@ -442,14 +436,10 @@ class ZoomLensDesignerGUI:
                 except (KeyError, AttributeError):
                     pass  # 参数不存在时跳过，不影响主数据
 
-                # ── 供 gauss_to_lens 端使用的 BFD / δH'_G4 / BFL_MIN 三联 ────
+                # ── 供 gauss_to_lens 端使用的 BFD_TARGET ────
                 # BFD_TARGET   : 写入 Zemax LDE 的末段空气厚度（可负）
-                # DELTA_HP_G4  : gauss_to_lens 端 G4 候选筛选层的软约束目标值
-                # BFL_MIN      : 物理 BFL 的工程下限，仅供 gauss_to_lens 端诊断警告
                 try:
-                    f.write(f"# BFD_TARGET={self.params['bfd_target'].get()}\n")
-                    f.write(f"# DELTA_HP_G4={self.params['delta_Hp_G4'].get()}\n")
-                    f.write(f"# BFL_MIN={self.params['bfl_min'].get()}\n")
+                    f.write(f"# BFL_Ideal={self.params['bfd_target'].get()}\n")
                 except (KeyError, AttributeError):
                     pass  # 参数不存在时跳过，不影响主数据
 
@@ -620,7 +610,6 @@ class ZoomLensDesignerGUI:
                 n_eff_G2          = float(self.params['n_eff_G2'].get()),
                 n_eff_G3          = float(self.params['n_eff_G3'].get()),
                 n_eff_G4          = float(self.params['n_eff_G4'].get()),
-                delta_Hp_G4       = float(self.params['delta_Hp_G4'].get()),
                 v_eff_G1          = float(self.params['v_eff_G1'].get()),
                 v_eff_G2          = float(self.params['v_eff_G2'].get()),
                 v_eff_G3          = float(self.params['v_eff_G3'].get()),
@@ -643,6 +632,7 @@ class ZoomLensDesignerGUI:
 
     def _optimize_worker(self, config: ZoomConfig, n_runs: int):
         try:
+            _t_start = time.perf_counter()
             self.root.after(0, self._log, f">>> 启动工程级光学寻优 (共 {n_runs} 轮)")
             self.root.after(0, self._log, f"    目标: {config.f_wide}-{config.f_tele}mm | TTL: {config.ttl_target}mm")
 
@@ -719,6 +709,7 @@ class ZoomLensDesignerGUI:
             err_msg = traceback.format_exc()
             self.root.after(0, lambda: self._log(f"\n{err_msg}"))
         finally:
+            print(f"[TIMING] auto 总耗时: {time.perf_counter() - _t_start:.1f}s ({n_runs} 轮)")
             self.root.after(0, self.progress.stop)
             self.root.after(0, lambda: self.btn_run.config(state='normal'))
             self.root.after(0, lambda: self.btn_loop.config(state='normal'))
