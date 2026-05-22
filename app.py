@@ -45,7 +45,7 @@ DEFAULTS = {
 
 # ==================== 绘图（搬自 gui.py:786-825）====================
 def plot_trajectory(traj, sys_obj, cfg):
-    fig = plt.Figure(figsize=(10, 8))
+    fig = plt.Figure(figsize=(14, 10))
     fig.suptitle('4-Group Zoom Lens Kinematics & Aperture Analysis', fontsize=13)
     ax1 = fig.add_subplot(2, 2, 1)
     ax2 = fig.add_subplot(2, 2, 2)
@@ -312,9 +312,9 @@ def build_ui():
                 )
                 run_btn = gr.Button("🚀 开始优化 / Start Optimization", variant="primary", size="lg")
 
-            with gr.Column(scale=1):
+            with gr.Column(scale=2):
                 gr.Markdown("### 优化日志 / Optimization Log")
-                log_output = gr.Textbox(label="", lines=20, max_lines=30, interactive=False)
+                log_output = gr.Textbox(label="", lines=12, max_lines=20, interactive=False)
                 gr.Markdown("### 变焦曲线分析 / Zoom Curve Analysis")
                 plot_output = gr.Plot(label="")
                 csv_output = gr.File(label="下载结果 CSV / Download CSV", interactive=False)
