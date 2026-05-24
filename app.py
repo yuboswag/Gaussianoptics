@@ -154,6 +154,7 @@ def run_optimization(
         cfg = ZoomConfig(
             f_wide=float(f_wide), f_tele=float(f_tele),
             ttl_target=float(ttl_target), bfd_target=float(bfd_target),
+            bfd_min=float(bfd_target),
             f1=float(f1), f4=float(f4),
             sensor_size=float(sensor_size),
             f_number=float(f_number), f_number_tele=float(f_number_tele),
@@ -230,6 +231,7 @@ def run_optimization(
     try:
         traj = best_optimizer.best_trajectory
         sys_obj = best_optimizer.system
+        log(f"    BFD = {traj['bfd']:.3f} mm  (下限 {cfg.bfd_min:.1f})")
         fig = plot_trajectory(traj, sys_obj, cfg)
         csv_path = export_csv(traj, cfg)
         log("\n✓ 曲线图和 CSV 已生成。")
@@ -260,7 +262,7 @@ def build_ui():
                     f_tele = gr.Number(label="长焦焦距 f_tele (mm)", info="Tele focal length", value=DEFAULTS['f_tele'])
                 with gr.Row():
                     ttl_target = gr.Number(label="总长 TTL (mm)", info="Total track length", value=DEFAULTS['ttl_target'])
-                    bfd_target = gr.Number(label="后焦距 BFD (mm)", info="Back focal distance", value=DEFAULTS['bfd_target'])
+                    bfd_target = gr.Number(label="后焦距下限 BFD_min (mm)", info="Lower bound; optimizer picks actual BFD ≥ this", value=DEFAULTS['bfd_target'])
                 with gr.Row():
                     f1 = gr.Number(label="前组焦距 f1 (mm)", info="Front group focal length", value=DEFAULTS['f1'])
                     f4 = gr.Number(label="后组焦距 f4 (mm)", info="Rear group focal length", value=DEFAULTS['f4'])
