@@ -81,6 +81,7 @@ class ZoomSystemSimulator:
             CA1=CA1, CA2=CA2, CA3=CA3, CA4=CA4,
             d1=d1, d2=d2, d3=d3,  # 实际空气间隔（已扣除组厚度）
             d1_thin=d1_thin, d2_thin=d2_thin, d3_thin=d3_thin,  # 薄透镜主平面间距（供诊断）
+            bfd=bfd,
             delta_violation=delta_violation,
             # ── 新增：边缘光线追迹数据（列顺序：G1, G2, G3, G4）──────
             h_m=h_m,       # 各组元的边缘光线高度 (mm)
@@ -141,7 +142,7 @@ class ZoomSystemSimulator:
         返回: y1_c, y2_c, y3_c, y4_c  各形状 (N,)
         """
         H_img = self.config.sensor_size / 2.0
-        bfd   = self.config.bfd_target
+        bfd   = self.bfd_override if self.bfd_override is not None else self.config.bfd_target
         sg    = getattr(self.config, 'stop_group', 3)
         ss    = self.config.stop_shift  # 正值 = 向像方偏移
 

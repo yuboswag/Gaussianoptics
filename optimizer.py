@@ -13,6 +13,7 @@ class ZoomLensOptimizer:
         self.system = ZoomSystemSimulator(config)
         self.best_params = None
         self.best_trajectory = None
+        self._current_ttl = config.ttl_target  # objective 内重算 z_G4_ref 用
 
         ref_scale = 10.0
         current_scale = self.config.f_wide if self.config.f_wide > 0.1 else 10.0
@@ -29,6 +30,7 @@ class ZoomLensOptimizer:
             'delta': 5.0e7 / (ratio ** 2),
             'ca1_limit': 5.0e4 / ratio,
             'chromatic': 3.0e5 * ratio,  # 组级色差软约束
+            'bfd_min': 5.0e7 / ratio,  # BFD 软下限（与 gaps 同档）
         }
 
     def _compute_bounds(self):
@@ -43,13 +45,18 @@ class ZoomLensOptimizer:
             (-zoom_ratio * 2.0, -0.5),  # m2_T
             (0.7, 1.3),                 # f1_factor
             (0.5, 1.3),                 # f4_factor
+            (0.5 * self.config.bfd_min, 20.0),  # bfd（软下限 ≥ bfd_min）
         )
 
     def objective_function(self, params: np.ndarray) -> float:
-        f2, f3, m2_W, m2_T, f1_fac, f4_fac = params
+        f2, f3, m2_W, m2_T, f1_fac, f4_fac, bfd = params
 
         if m2_W <= m2_T:
             return 1e9
+
+        # BFD 为搜索变量：每次评估同步 override 与 G4 位置，保证 TTL 守恒
+        self.system.bfd_override = bfd
+        self.system.z_G4_ref = self._current_ttl - bfd
 
         f1_dyn = self.config.f1 * f1_fac
         f4_dyn = self.config.f4 * f4_fac
@@ -74,6 +81,7 @@ class ZoomLensOptimizer:
         penalty += self._penalty_smoothness(z3)
         penalty += self._penalty_ca1(CA1)
         penalty += self._penalty_root_center(m3)
+        penalty += self._penalty_bfd(bfd)
 
         return penalty
 
@@ -92,8 +100,7 @@ class ZoomLensOptimizer:
         bounds = self._compute_bounds()  # 6维
 
         for ttl_val in ttl_candidates:
-            t_G4 = self.system._t_G4
-            self.system.z_G4_ref = ttl_val - self.config.bfd_target
+            self._current_ttl = ttl_val  # objective 据此 + candidate bfd 重算 z_G4_ref
 
             best_res_fun = float('inf')
             best_res_x = None
@@ -130,7 +137,7 @@ class ZoomLensOptimizer:
                 best_ttl = ttl_val
 
         # 精修
-        self.system.z_G4_ref = best_ttl - self.config.bfd_target
+        self._current_ttl = best_ttl
 
         if callback:
             callback(f"最佳 TTL={best_ttl:.0f}，单纯形精修...")
@@ -153,19 +160,24 @@ class ZoomLensOptimizer:
         self.best_ttl = best_ttl
         self.best_phys_ttl = best_ttl + (self.system._t_G1 + self.system._t_G4) / 2.0
 
-        f2, f3, m2_W, m2_T, f1_fac, f4_fac = final_x
+        f2, f3, m2_W, m2_T, f1_fac, f4_fac, bfd = final_x
         f1_dyn = self.config.f1 * f1_fac
         f4_dyn = self.config.f4 * f4_fac
+        self.best_bfd = bfd
+        self.system.bfd_override = bfd
+        self.system.z_G4_ref = best_ttl - bfd
         self.best_trajectory = self.system.zoom_sweep(f2, f3, m2_W, m2_T, f1_dyn, f4_dyn)
 
         return True
 
     def get_penalty_diagnostics(self, params: np.ndarray) -> dict:
-        f2, f3, m2_W, m2_T, f1_fac, f4_fac = params
+        f2, f3, m2_W, m2_T, f1_fac, f4_fac, bfd = params
 
         if m2_W <= m2_T:
             return {"致命错误": "广角/长焦放大率倒置 (m2_W <= m2_T)"}
 
+        self.system.bfd_override = bfd
+        self.system.z_G4_ref = self._current_ttl - bfd
         f1_dyn = self.config.f1 * f1_fac
         f4_dyn = self.config.f4 * f4_fac
 
@@ -184,8 +196,9 @@ class ZoomLensOptimizer:
         p_smooth = self._penalty_smoothness(z3)
         p_root = self._penalty_root_center(m3)
         p_ca1 = self._penalty_ca1(CA1)
+        p_bfd = self._penalty_bfd(bfd)
 
-        total = p_delta + p_efl + p_gaps + p_petzval + p_chrom + p_mono + p_smooth + p_root + p_ca1
+        total = p_delta + p_efl + p_gaps + p_petzval + p_chrom + p_mono + p_smooth + p_root + p_ca1 + p_bfd
 
         return {
             "总分 (Total)": total,
@@ -197,7 +210,8 @@ class ZoomLensOptimizer:
             "5. G2单调性 (Mono)": p_mono,
             "6. 轨迹平滑 (Smooth)": p_smooth,
             "7. 换根失败 (Root)": p_root,
-            "8. G1口径超标 (CA1)": p_ca1
+            "8. G1口径超标 (CA1)": p_ca1,
+            "9. BFD软下限 (BFD)": p_bfd
         }
 
     # ── 辅助函数保持不变 ──
@@ -256,6 +270,9 @@ class ZoomLensOptimizer:
         cross_idx = np.argmin(np.abs(m3 - (-1.0)))
         target_idx = len(m3) // 2
         return (abs(cross_idx - target_idx) / len(m3)) ** 2 * self.weights['root_center']
+
+    def _penalty_bfd(self, bfd: float) -> float:
+        return max(0.0, self.config.bfd_min - bfd) ** 2 * self.weights['bfd_min']
 
     def _penalty_ca1(self, CA1: np.ndarray) -> float:
         violation = np.sum(np.maximum(0.0, CA1 - self.config.max_ca1))

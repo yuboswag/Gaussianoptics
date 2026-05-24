@@ -33,11 +33,12 @@ if __name__ == '__main__':
         print(f"广角 EFL : {efl_w:.3f} mm  目标 {cfg.f_wide}  误差 {err_w:.1f}%")
         print(f"长焦 EFL : {efl_t:.3f} mm  目标 {cfg.f_tele}  误差 {err_t:.2f}%")
 
-        f2, f3, m2_W, m2_T, f1_fac, f4_fac = opt.best_params
+        f2, f3, m2_W, m2_T, f1_fac, f4_fac, bfd = opt.best_params
         print(f"\n=== 最优参数 ===")
         print(f"f2={f2:.3f}, f3={f3:.3f}")
         print(f"m2_W={m2_W:.4f}, m2_T={m2_T:.4f}")
         print(f"f1={cfg.f1*f1_fac:.3f}, f4={cfg.f4*f4_fac:.3f}")
+        print(f"bfd={bfd:.3f} (best_bfd={opt.best_bfd:.3f})")
 
         d1 = traj['d1']
         d2 = traj['d2']

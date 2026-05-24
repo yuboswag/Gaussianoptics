@@ -58,7 +58,7 @@ class ZoomLensDesignerGUI:
             ("广角焦距 f_wide (mm)", "f_wide"),
             ("远摄焦距 f_tele (mm)", "f_tele"),
             ("总长 TTL (mm)",        "ttl_target"),
-            ("后焦距 BFD (mm)",      "bfd_target"),
+            ("后焦距下限 BFD_min (mm)", "bfd_target"),
             ("前组焦距 f1 (mm)",     "f1"),
             ("后组焦距 f4 (mm)",     "f4"),
             ("像面直径 Sensor (mm)", "sensor_size"),
@@ -439,7 +439,7 @@ class ZoomLensDesignerGUI:
                 # ── 供 gauss_to_lens 端使用的 BFD_TARGET ────
                 # BFD_TARGET   : 写入 Zemax LDE 的末段空气厚度（可负）
                 try:
-                    f.write(f"# BFL_Ideal={self.params['bfd_target'].get()}\n")
+                    f.write(f"# BFL_Ideal={traj['bfd']:.3f}\n")
                     f.write(f"# TTL_Ideal={self.params['ttl_target'].get()}\n")
                 except (KeyError, AttributeError):
                     pass  # 参数不存在时跳过，不影响主数据
@@ -518,7 +518,9 @@ class ZoomLensDesignerGUI:
         self.optimizer.config.stop_shift = self.var_shift.get()
         self.optimizer.config.stop_group = self.var_stop_group.get()
 
-        f2, f3, m2_W, m2_T, f1_fac, f4_fac = self.optimizer.best_params
+        f2, f3, m2_W, m2_T, f1_fac, f4_fac, bfd = self.optimizer.best_params
+        self.optimizer.system.bfd_override = bfd
+        self.optimizer.system.z_G4_ref = self.optimizer.best_ttl - bfd
         f1_dyn = self.optimizer.config.f1 * f1_fac
         f4_dyn = self.optimizer.config.f4 * f4_fac
         traj = self.optimizer.system.zoom_sweep(f2, f3, m2_W, m2_T, f1_dyn, f4_dyn)
@@ -592,6 +594,7 @@ class ZoomLensDesignerGUI:
                 f_tele            = float(self.params['f_tele'].get()),
                 ttl_target        = float(self.params['ttl_target'].get()),
                 bfd_target        = float(self.params['bfd_target'].get()),
+                bfd_min           = float(self.params['bfd_target'].get()),
                 f1                = float(self.params['f1'].get()),
                 f4                = float(self.params['f4'].get()),
                 sensor_size       = float(self.params['sensor_size'].get()),
@@ -720,7 +723,7 @@ class ZoomLensDesignerGUI:
         self.btn_save_fig.config(state='normal')
         traj = self.optimizer.best_trajectory
         
-        f2, f3, m2_W, m2_T, f1_fac, f4_fac = self.optimizer.best_params
+        f2, f3, m2_W, m2_T, f1_fac, f4_fac, bfd = self.optimizer.best_params
         sys_obj = self.optimizer.system
 
         best_f1 = sys_obj.config.f1 * f1_fac
@@ -731,6 +734,7 @@ class ZoomLensDesignerGUI:
         self._log(f"    f2 = {f2:.3f} mm")
         self._log(f"    f3 = {f3:.3f} mm")
         self._log(f"    f4 = {best_f4:.3f} mm  (初始值: {sys_obj.config.f4:.1f}, 浮动: {f4_fac:.2f}x)")
+        self._log(f"    BFD = {bfd:.3f} mm  (下限 {sys_obj.config.bfd_min:.1f})")
 
         cfg = self.optimizer.config
         ttl_actual = self.optimizer.best_ttl

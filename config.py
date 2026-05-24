@@ -26,6 +26,7 @@ class ZoomConfig:
     f_wide: float = 10.0
     f_tele: float = 100.0
     bfd_target: float = 15.0
+    bfd_min: float = 6.0
     ttl_target: float = 180.0
     f1: float = 100.0
     f4: float = 45.0
