@@ -277,3 +277,63 @@ class ZoomLensOptimizer:
     def _penalty_ca1(self, CA1: np.ndarray) -> float:
         violation = np.sum(np.maximum(0.0, CA1 - self.config.max_ca1))
         return violation * self.weights['ca1_limit']
+
+
+def build_summary_lines(optimizer) -> list:
+    lines = []
+
+    traj = optimizer.best_trajectory
+
+    f2, f3, m2_W, m2_T, f1_fac, f4_fac, bfd = optimizer.best_params
+    sys_obj = optimizer.system
+    cfg = optimizer.config
+
+    best_f1 = sys_obj.config.f1 * f1_fac
+    best_f4 = sys_obj.config.f4 * f4_fac
+
+    lines.append("\n>>> 优化成功！核心参数分配:")
+    lines.append(f"    f1 = {best_f1:.3f} mm  (初始值: {sys_obj.config.f1:.1f}, 浮动: {f1_fac:.2f}x)")
+    lines.append(f"    f2 = {f2:.3f} mm")
+    lines.append(f"    f3 = {f3:.3f} mm")
+    lines.append(f"    f4 = {best_f4:.3f} mm  (初始值: {sys_obj.config.f4:.1f}, 浮动: {f4_fac:.2f}x)")
+    lines.append(f"    BFD = {traj['bfd']:.3f} mm  (下限 {sys_obj.config.bfd_min:.1f})")
+
+    ttl_actual = optimizer.best_ttl
+    lines.append(f"  优化器选 TTL (z_G4_ref+BFD) = {ttl_actual:.2f} mm (目标 {cfg.ttl_target}, 偏差 {(ttl_actual/cfg.ttl_target - 1)*100:+.1f}%)")
+    # 物理 TTL = 薄透镜 TTL + (t_G1 + t_G4)/2，因为 d1/d2/d3 已做半厚度修正
+    phys_ttl_val = ttl_actual + (sys_obj._t_G1 + sys_obj._t_G4) / 2.0
+    lines.append(f"  物理 TTL (含组厚度) = {phys_ttl_val:.2f} mm (相对目标偏差 {(phys_ttl_val/cfg.ttl_target - 1)*100:+.1f}%)")
+    lines.append(f"  半厚度补偿 = {(sys_obj._t_G1 + sys_obj._t_G4)/2.0:.2f} mm (= (t_G1 + t_G4) / 2)")
+    ttl_max_val = cfg.ttl_target * 1.5
+    lines.append(f"  TTL 硬上限 (1.5 × 目标) = {ttl_max_val:.2f} mm")
+    if phys_ttl_val > ttl_max_val:
+        lines.append(f"  ⚠️ 物理 TTL 超过硬上限 {phys_ttl_val - ttl_max_val:.2f} mm")
+
+    P_sum = (
+        (1.0 / best_f1) / cfg.n_eff_G1 +
+        (1.0 / f2)     / cfg.n_eff_G2 +
+        (1.0 / f3)     / cfg.n_eff_G3 +
+        (1.0 / best_f4) / cfg.n_eff_G4
+    )
+    R_pz = -1.0 / P_sum if P_sum != 0 else float('inf')
+    lines.append(f"    *系统佩兹伐和 (分组 n) = {P_sum:.4f}")
+    lines.append(f"    *初始场曲曲率半径 R_pz = {R_pz:.1f} mm")
+
+    crossings = int(np.sum(np.diff(np.sign(traj['m3'] - (-1.0))) != 0))
+    if crossings > 0:
+        pct = np.argmin(np.abs(traj['m3'] - (-1.0))) / (sys_obj.config.num_positions - 1) * 100
+        lines.append(f"    *换根检测: ✓ 成功物理换根 (发生于行程 {pct:.1f}% 处)")
+    else:
+        lines.append(f"    *换根检测: ✗ 未发生换根 (单根运行)")
+
+    sg = optimizer.config.stop_group
+    ca_names = {1: ['G1(STOP)', 'G2', 'G3', 'G4'],
+                2: ['G1', 'G2(STOP)', 'G3', 'G4'],
+                3: ['G1', 'G2', 'G3(STOP)', 'G4'],
+                4: ['G1', 'G2', 'G3', 'G4(STOP)']}
+    lbl = ca_names.get(sg, ca_names[3])
+    lines.append(f"\n>>> 各组最大通光孔径估计(CA):")
+    lines.append(f"    {lbl[0]}: {np.max(traj['CA1']):.1f}mm | {lbl[1]}: {np.max(traj['CA2']):.1f}mm")
+    lines.append(f"    {lbl[2]}: {np.max(traj['CA3']):.1f}mm | {lbl[3]}: {np.max(traj['CA4']):.1f}mm")
+
+    return lines
