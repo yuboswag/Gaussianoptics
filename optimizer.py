@@ -84,7 +84,7 @@ class ZoomLensOptimizer:
 
     def optimize(self, callback=None, extra_seeds=None) -> bool:
         # TTL 候选系数：覆盖 0.95×~1.5× 范围，扫描紧凑到宽松设计
-        ttl_candidates = [self.config.ttl_target * r for r in [0.95, 1.0, 1.05, 1.1, 1.2, 1.3, 1.4, 1.5]]
+        ttl_candidates = [self.config.ttl_target * r for r in [1.05, 1.1, 1.2, 1.3]]
         ttl_max = self.config.ttl_target * 1.5
 
         if callback:
@@ -106,11 +106,11 @@ class ZoomLensOptimizer:
                 seeds = list(extra_seeds)
             else:
                 # 第1轮：跑固定种子建立基线
-                seeds = [42, 123, 7]
+                seeds = [42, 123, 7, 2024, 99]
             for s in seeds:
                 res = differential_evolution(
                     self.objective_function, bounds,
-                    strategy='best1bin', maxiter=120, popsize=20,
+                    strategy='best1bin', maxiter=250, popsize=40,
                     tol=0.005, seed=s, workers=_DE_WORKERS, disp=False
                 )
                 if res.fun < best_res_fun:
