@@ -518,11 +518,9 @@ class ZoomLensDesignerGUI:
         self.optimizer.config.stop_shift = self.var_shift.get()
         self.optimizer.config.stop_group = self.var_stop_group.get()
 
-        f2, f3, m2_W, m2_T, f1_fac, f4_fac, bfd = self.optimizer.best_params
+        f2, f3, m2_W, m2_T, f1_dyn, f4_dyn, bfd = self.optimizer.best_params
         self.optimizer.system.bfd_override = bfd
         self.optimizer.system.z_G4_ref = self.optimizer.best_ttl - bfd
-        f1_dyn = self.optimizer.config.f1 * f1_fac
-        f4_dyn = self.optimizer.config.f4 * f4_fac
         traj = self.optimizer.system.zoom_sweep(f2, f3, m2_W, m2_T, f1_dyn, f4_dyn)
 
         if traj is not None:
