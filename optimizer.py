@@ -43,13 +43,13 @@ class ZoomLensOptimizer:
             (10.0, f_t * 1.5),          # f3
             (-2.0, -0.1),               # m2_W
             (-zoom_ratio * 2.0, -0.5),  # m2_T
-            (0.7, 1.3),                 # f1_factor
-            (0.5, 1.3),                 # f4_factor
+            (20.0, 80.0),               # f1 (绝对焦距 mm)
+            (20.0, 80.0),               # f4 (绝对焦距 mm)
             (0.5 * self.config.bfd_min, 20.0),  # bfd（软下限 ≥ bfd_min）
         )
 
     def objective_function(self, params: np.ndarray) -> float:
-        f2, f3, m2_W, m2_T, f1_fac, f4_fac, bfd = params
+        f2, f3, m2_W, m2_T, f1_dyn, f4_dyn, bfd = params
 
         if m2_W <= m2_T:
             return 1e9
@@ -57,9 +57,6 @@ class ZoomLensOptimizer:
         # BFD 为搜索变量：每次评估同步 override 与 G4 位置，保证 TTL 守恒
         self.system.bfd_override = bfd
         self.system.z_G4_ref = self._current_ttl - bfd
-
-        f1_dyn = self.config.f1 * f1_fac
-        f4_dyn = self.config.f4 * f4_fac
 
         traj = self.system.zoom_sweep(f2, f3, m2_W, m2_T, f1_dyn, f4_dyn)
 
@@ -128,6 +125,28 @@ class ZoomLensOptimizer:
             penalty_ttl_soft = (ttl_dev_norm ** 2) * 1.0e3
             total = best_res_fun + penalty_ttl_hard + penalty_ttl_soft
 
+            # 诊断：重建 trajectory 读取 m3 距 -1 的裕量
+            if best_res_x is not None:
+                dx_f2, dx_f3, dx_m2W, dx_m2T, dx_f1, dx_f4, dx_bfd = best_res_x
+                self.system.bfd_override = dx_bfd
+                self.system.z_G4_ref = ttl_val - dx_bfd
+                diag_traj = self.system.zoom_sweep(dx_f2, dx_f3, dx_m2W, dx_m2T, dx_f1, dx_f4)
+                m3 = diag_traj['m3']
+                crossed = bool(np.sum(np.diff(np.sign(m3 - (-1.0))) != 0) > 0)
+                min_gap = float(np.min(np.abs(m3 - (-1.0))))
+                delta_viol = float(diag_traj['delta_violation'])
+                _diag_line = f"  [诊断] TTL={ttl_val:.0f} best_fun={best_res_fun:.2e} 换根={'✓穿过' if crossed else '✗未穿过'} min|m3+1|={min_gap:.3f} delta越界={delta_viol:.2f}"
+                print(_diag_line, flush=True)
+                if callback:
+                    callback(_diag_line)
+                _pdiag = self.get_penalty_diagnostics(best_res_x)
+                for _k, _v in _pdiag.items():
+                    _line = f"      {_k}: {_v:.3e}" if isinstance(_v, (int, float)) else f"      {_k}: {_v}"
+                    print(_line, flush=True)
+                    if callback:
+                        callback(_line)
+            # 诊断块结束——get_penalty_diagnostics 内也会改写 bfd_override/z_G4_ref，循环下一轮或精修会重设
+
             if callback:
                 callback(f"  TTL={ttl_val:.0f} -> {total:.2e}")
 
@@ -160,9 +179,7 @@ class ZoomLensOptimizer:
         self.best_ttl = best_ttl
         self.best_phys_ttl = best_ttl + (self.system._t_G1 + self.system._t_G4) / 2.0
 
-        f2, f3, m2_W, m2_T, f1_fac, f4_fac, bfd = final_x
-        f1_dyn = self.config.f1 * f1_fac
-        f4_dyn = self.config.f4 * f4_fac
+        f2, f3, m2_W, m2_T, f1_dyn, f4_dyn, bfd = final_x
         self.best_bfd = bfd
         self.system.bfd_override = bfd
         self.system.z_G4_ref = best_ttl - bfd
@@ -171,15 +188,13 @@ class ZoomLensOptimizer:
         return True
 
     def get_penalty_diagnostics(self, params: np.ndarray) -> dict:
-        f2, f3, m2_W, m2_T, f1_fac, f4_fac, bfd = params
+        f2, f3, m2_W, m2_T, f1_dyn, f4_dyn, bfd = params
 
         if m2_W <= m2_T:
             return {"致命错误": "广角/长焦放大率倒置 (m2_W <= m2_T)"}
 
         self.system.bfd_override = bfd
         self.system.z_G4_ref = self._current_ttl - bfd
-        f1_dyn = self.config.f1 * f1_fac
-        f4_dyn = self.config.f4 * f4_fac
 
         traj = self.system.zoom_sweep(f2, f3, m2_W, m2_T, f1_dyn, f4_dyn)
 
@@ -284,18 +299,15 @@ def build_summary_lines(optimizer) -> list:
 
     traj = optimizer.best_trajectory
 
-    f2, f3, m2_W, m2_T, f1_fac, f4_fac, bfd = optimizer.best_params
+    f2, f3, m2_W, m2_T, best_f1, best_f4, bfd = optimizer.best_params
     sys_obj = optimizer.system
     cfg = optimizer.config
 
-    best_f1 = sys_obj.config.f1 * f1_fac
-    best_f4 = sys_obj.config.f4 * f4_fac
-
     lines.append("\n>>> 优化成功！核心参数分配:")
-    lines.append(f"    f1 = {best_f1:.3f} mm  (初始值: {sys_obj.config.f1:.1f}, 浮动: {f1_fac:.2f}x)")
+    lines.append(f"    f1 = {best_f1:.3f} mm  (自由优化)")
     lines.append(f"    f2 = {f2:.3f} mm")
     lines.append(f"    f3 = {f3:.3f} mm")
-    lines.append(f"    f4 = {best_f4:.3f} mm  (初始值: {sys_obj.config.f4:.1f}, 浮动: {f4_fac:.2f}x)")
+    lines.append(f"    f4 = {best_f4:.3f} mm  (自由优化)")
     lines.append(f"    BFD = {traj['bfd']:.3f} mm  (下限 {sys_obj.config.bfd_min:.1f})")
 
     ttl_actual = optimizer.best_ttl
