@@ -680,7 +680,7 @@ class ZoomLensDesignerGUI:
                     if key == "总分 (Total)": continue
                     pct = (val / total_loss) * 100 if total_loss > 0 else 0
                     if val > 1.0:
-                        tag = "🔴" if pct > 10 else "  " 
+                        tag = "🔴" if (pct > 10 and val > 1e5) else "  "
                         msg.append(f"  {tag} {key}: {val:.2e} (占比 {pct:.1f}%)")
                 self.root.after(0, self._log, "\n".join(msg))
 
