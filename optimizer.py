@@ -44,7 +44,7 @@ class ZoomLensOptimizer:
             (-2.0, -0.1),               # m2_W
             (-zoom_ratio * 2.0, -0.5),  # m2_T
             (20.0, 80.0),               # f1 (绝对焦距 mm)
-            (20.0, 80.0),               # f4 (绝对焦距 mm)
+            (40.0, 80.0),               # f4 (绝对焦距 mm)
             (0.5 * self.config.bfd_min, 20.0),  # bfd（软下限 ≥ bfd_min）
         )
 
