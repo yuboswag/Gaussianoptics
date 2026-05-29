@@ -202,7 +202,7 @@ class ZoomLensOptimizer:
             "4b. 色差约束 (Chrom)": p_chrom,
             "5. G2单调性 (Mono)": p_mono,
             "6. 轨迹平滑 (Smooth)": p_smooth,
-            "7. 换根失败 (Root)": p_root,
+            "7. 换根居中度 (Root)": p_root,
             "8. G1口径超标 (CA1)": p_ca1,
             "9. BFD软下限 (BFD)": p_bfd
         }
