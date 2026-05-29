@@ -125,28 +125,6 @@ class ZoomLensOptimizer:
             penalty_ttl_soft = (ttl_dev_norm ** 2) * 1.0e3
             total = best_res_fun + penalty_ttl_hard + penalty_ttl_soft
 
-            # 诊断：重建 trajectory 读取 m3 距 -1 的裕量
-            if best_res_x is not None:
-                dx_f2, dx_f3, dx_m2W, dx_m2T, dx_f1, dx_f4, dx_bfd = best_res_x
-                self.system.bfd_override = dx_bfd
-                self.system.z_G4_ref = ttl_val - dx_bfd
-                diag_traj = self.system.zoom_sweep(dx_f2, dx_f3, dx_m2W, dx_m2T, dx_f1, dx_f4)
-                m3 = diag_traj['m3']
-                crossed = bool(np.sum(np.diff(np.sign(m3 - (-1.0))) != 0) > 0)
-                min_gap = float(np.min(np.abs(m3 - (-1.0))))
-                delta_viol = float(diag_traj['delta_violation'])
-                _diag_line = f"  [诊断] TTL={ttl_val:.0f} best_fun={best_res_fun:.2e} 换根={'✓穿过' if crossed else '✗未穿过'} min|m3+1|={min_gap:.3f} delta越界={delta_viol:.2f}"
-                print(_diag_line, flush=True)
-                if callback:
-                    callback(_diag_line)
-                _pdiag = self.get_penalty_diagnostics(best_res_x)
-                for _k, _v in _pdiag.items():
-                    _line = f"      {_k}: {_v:.3e}" if isinstance(_v, (int, float)) else f"      {_k}: {_v}"
-                    print(_line, flush=True)
-                    if callback:
-                        callback(_line)
-            # 诊断块结束——get_penalty_diagnostics 内也会改写 bfd_override/z_G4_ref，循环下一轮或精修会重设
-
             if callback:
                 callback(f"  TTL={ttl_val:.0f} -> {total:.2e}")
 
