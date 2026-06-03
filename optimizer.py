@@ -43,7 +43,7 @@ class ZoomLensOptimizer:
             (10.0, f_t * 1.5),          # f3
             (-2.0, -0.1),               # m2_W
             (-zoom_ratio * 2.0, -0.5),  # m2_T
-            (20.0, 80.0),               # f1 (绝对焦距 mm)
+            (20.0, max(80.0, f_t * 0.85)),  # f1 (绝对焦距 mm)
             (40.0, 80.0),               # f4 (绝对焦距 mm)
             (0.5 * self.config.bfd_min, 20.0),  # bfd（软下限 ≥ bfd_min）
         )
@@ -230,7 +230,10 @@ class ZoomLensOptimizer:
             (1.0 / f3)     / self.config.n_eff_G3 +
             (1.0 / f4_dyn) / self.config.n_eff_G4
         )
-        return max(0.0, abs(P_sum) - 0.015) * self.weights['petzval']
+        # Petzval 死区 0.025：原 0.015 对高倍率(≥14×)过紧，误伤 EFL 可行解；
+        # 实测 14×(10/140) 放宽后 total -23%、P_sum 仅用到 -0.0149(场曲未实际变差），
+        # 而 ≤10× 样本 P_sum 量级 ~0.001，远在死区内、放宽零影响。
+        return max(0.0, abs(P_sum) - 0.025) * self.weights['petzval']
 
     def _penalty_chromatic(self, f1_dyn: float, f2: float, f3: float, f4_dyn: float) -> float:
         """
@@ -286,6 +289,8 @@ def build_summary_lines(optimizer) -> list:
     lines.append(f"    f2 = {f2:.3f} mm")
     lines.append(f"    f3 = {f3:.3f} mm")
     lines.append(f"    f4 = {best_f4:.3f} mm  (自由优化)")
+    _zoom_dbg = cfg.f_tele / cfg.f_wide
+    lines.append(f"    m2_W = {m2_W:.3f} (边界 -2.0 ~ -0.1) | m2_T = {m2_T:.3f} (边界 {-_zoom_dbg*2.0:.2f} ~ -0.5)")
     lines.append(f"    BFD = {traj['bfd']:.3f} mm  (下限 {sys_obj.config.bfd_min:.1f})")
 
     ttl_actual = optimizer.best_ttl
