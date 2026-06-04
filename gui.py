@@ -29,6 +29,7 @@ class ZoomLensDesignerGUI:
         self.root.geometry("1500x950")
 
         self.optimizer: ZoomLensOptimizer | None = None
+        self._perturb_baseline = None  # 扰动复核：暂存基线结果快照
         self.params: dict[str, ttk.Entry] = {}
         self._after_id = None  
 
@@ -212,6 +213,22 @@ class ZoomLensDesignerGUI:
             state='disabled'
         )
         self.btn_save_fig.pack(side='left', padx=2)
+
+        self.btn_mark_base = ttk.Button(
+            btn_frame,
+            text="📌 记为基线",
+            command=self._mark_baseline,
+            state='disabled'
+        )
+        self.btn_mark_base.pack(side='left', padx=2)
+
+        self.btn_perturb = ttk.Button(
+            btn_frame,
+            text="🔍 扰动对比",
+            command=self._on_perturb_compare,
+            state='disabled'
+        )
+        self.btn_perturb.pack(side='left', padx=2)
 
         self.progress = ttk.Progressbar(parent, mode='indeterminate')
         self.progress.pack(fill='x', pady=5)
@@ -440,7 +457,8 @@ class ZoomLensDesignerGUI:
                 # BFD_TARGET   : 写入 Zemax LDE 的末段空气厚度（可负）
                 try:
                     f.write(f"# BFL_Ideal={traj['bfd']:.3f}\n")
-                    f.write(f"# TTL_Ideal={self.params['ttl_target'].get()}\n")
+                    # TTL_Ideal = z_G4_ref + BFD（优化器实选总长），而非输入愿望值 ttl_target
+                    f.write(f"# TTL_Ideal={self.optimizer.best_ttl:.3f}\n")
                 except (KeyError, AttributeError):
                     pass  # 参数不存在时跳过，不影响主数据
 
@@ -553,6 +571,105 @@ class ZoomLensDesignerGUI:
         self.log_text.see(tk.END)
         self.root.update_idletasks()
 
+    def _snapshot_current(self):
+        """从当前 self.optimizer 提取扰动复核所需的结果快照。无有效结果返回 None。"""
+        opt = getattr(self, 'optimizer', None)
+        if opt is None or getattr(opt, 'best_params', None) is None:
+            return None
+        bd = opt.get_penalty_diagnostics(opt.best_params)
+        sysobj = opt.system
+        phys_ttl = opt.best_ttl + (sysobj._t_G1 + sysobj._t_G4) / 2.0
+        f2, f3, m2_W, m2_T, f1_dyn, f4_dyn, bfd = opt.best_params
+        return {
+            'breakdown': dict(bd),
+            'total': bd.get("总分 (Total)", float('inf')),
+            'phys_ttl': phys_ttl,
+            'f1': f1_dyn, 'f2': f2, 'f3': f3, 'f4': f4_dyn,
+        }
+
+    def _mark_baseline(self):
+        """📌 把当前结果记为扰动复核基线。"""
+        snap = self._snapshot_current()
+        if snap is None:
+            self._log("\n⚠️ 尚无有效优化结果，请先运行一次优化再记基线。")
+            return
+        self._perturb_baseline = snap
+        self._log(f"\n📌 已记为基线 | total={snap['total']:.2e} | "
+                  f"phys_ttl={snap['phys_ttl']:.1f}mm | "
+                  f"f1~f4=({snap['f1']:.1f}/{snap['f2']:.1f}/{snap['f3']:.1f}/{snap['f4']:.1f})")
+
+    def _compare_perturbation(self, knob_kind):
+        """🔍 把当前结果与暂存基线并排对比，按旋钮类型给判读提示。
+        knob_kind: 'boundary'(边界类) 或 'tolerance'(容差权重类)。
+        判读为提示性，不下最终结论——可救/墙由用户判断。"""
+        base = self._perturb_baseline
+        if base is None:
+            self._log("\n⚠️ 尚未记录基线，请先点『📌 记为基线』。")
+            return
+        cur = self._snapshot_current()
+        if cur is None:
+            self._log("\n⚠️ 尚无有效优化结果可对比，请先运行一次优化。")
+            return
+
+        kind_label = "边界类(TTL/BFD/f1/f4)" if knob_kind == 'boundary' else "容差权重类(Petzval/weight)"
+        lines = [f"\n🔬 【扰动对比】松开类型：{kind_label}"]
+        b_tot, c_tot = base['total'], cur['total']
+        d_pct = (c_tot - b_tot) / b_tot * 100 if b_tot > 0 else 0.0
+        arrow = "↓" if c_tot < b_tot else ("↑" if c_tot > b_tot else "=")
+        lines.append(f"  total      {b_tot:.2e} → {c_tot:.2e}  ({d_pct:+.1f}% {arrow})")
+
+        # 分项 delta（按基线项排序，只摆有意义的项）
+        all_keys = [k for k in base['breakdown'] if k != "总分 (Total)"]
+        efl_dropped = False
+        non_target_dropped = False
+        for k in all_keys:
+            bv = base['breakdown'].get(k, 0.0)
+            cv = cur['breakdown'].get(k, 0.0)
+            if max(bv, cv) < 1.0:
+                continue
+            dk = "↓" if cv < bv else ("↑" if cv > bv else "=")
+            lines.append(f"    {k}: {bv:.2e} → {cv:.2e} {dk}")
+            # 容差类判读：被松项之外是否改善
+            if knob_kind == 'tolerance':
+                if "EFL" in k and cv < bv * 0.9:
+                    efl_dropped = True
+                if "Petzval" not in k and "场曲" not in k and cv < bv * 0.9:
+                    non_target_dropped = True
+
+        lines.append(f"  phys_ttl(成本)  {base['phys_ttl']:.1f} → {cur['phys_ttl']:.1f} mm")
+
+        # 判读提示（提示，非判决）
+        lines.append("  ── 判读提示 ──")
+        if knob_kind == 'boundary':
+            if c_tot < b_tot * 0.85:
+                lines.append("  total 显著下降 → 此旋钮对该目标是有效杠杆（疑似可救）。")
+                lines.append(f"  代价：phys_ttl 变化见上。最终是否采用由你判断。")
+            elif c_tot >= b_tot:
+                lines.append("  total 未降反升或持平 → 松此旋钮无效，疑似该方向是物理墙。")
+            else:
+                lines.append("  total 小幅下降 → 杠杆微弱，价值有限，自行权衡。")
+        else:  # tolerance
+            if c_tot < b_tot * 0.85 and non_target_dropped:
+                lines.append("  total 显著下降，且被松项之外的项也下降 → 符合『真救』特征，非单纯罚分缩水。")
+                lines.append("  最终是否采用由你判断（注意场曲/像差代价）。")
+            elif c_tot < b_tot * 0.85 and not non_target_dropped:
+                lines.append("  ⚠️ total 下降但仅被松项自身缩水、其它项未改善 → 疑似『假救』（只是调小了罚分），"
+                             "种子实际像差未改善，慎用。")
+            else:
+                lines.append("  total 未显著下降 → 松此容差不是有效杠杆。")
+        lines.append("  （判定是起点+证伪手段，不是最终判决。本提示只覆盖『松单个量』类救法。）")
+        self._log("\n".join(lines))
+
+    def _on_perturb_compare(self):
+        """🔍 扰动对比按钮回调：询问旋钮类型后调用对比器。"""
+        is_boundary = messagebox.askyesno(
+            "扰动对比 — 旋钮类型",
+            "这次松开的是『边界类』旋钮吗？\n\n"
+            "是 → 边界类（TTL / BFD下限 / f1上界 / f4上界），判读看 total\n"
+            "否 → 容差权重类（Petzval死区 / 各weight），判读看 total + 被松项之外的项"
+        )
+        self._compare_perturbation('boundary' if is_boundary else 'tolerance')
+
     def _run_custom_loop(self):
         """读取用户输入的迭代次数并启动优化"""
         try:
@@ -626,6 +743,8 @@ class ZoomLensDesignerGUI:
         self.btn_loop.config(state='disabled')
         self.btn_exp.config(state='disabled')
         self.btn_save_fig.config(state='disabled')
+        self.btn_mark_base.config(state='disabled')
+        self.btn_perturb.config(state='disabled')
         self.progress.start()
 
         threading.Thread(
@@ -692,7 +811,7 @@ class ZoomLensDesignerGUI:
                 if ca1_pct > 0.15:
                     has_advice = True
                     advice_msg.append("👉 [前组口径爆炸] 药方：尝试在左侧大幅增大初始 f4，或调整边缘渐晕系数。")
-                if efl_pct > 0.15:
+                if efl_pct > 0.15 and best_score >= 20:
                     has_advice = True
                     advice_msg.append("👉 [长焦/广角未达标] 药方：1. 增大总长 TTL； 2. 尝试将 f1 设为接近目标长焦焦距。")
 
@@ -700,6 +819,32 @@ class ZoomLensDesignerGUI:
                     advice_msg.append("👉 系统状态良好！可调整下方参数实时分析光阑偏移与渐晕对口径的影响。")
 
                 self.root.after(0, self._log, "\n".join(advice_msg))
+                # ── 可行性判定（只读诊断，不影响优化；阈值 20/1000 为经验值，待更多数据校准） ──
+                verdict = ["\n🧭 【可行性判定】"]
+                _f2 = self.optimizer.best_params[0]
+                _sysobj = self.optimizer.system
+                _cfg = self.optimizer.config
+                _phys_ttl = self.optimizer.best_ttl + (_sysobj._t_G1 + _sysobj._t_G4) / 2.0
+                _ttl_max = _cfg.ttl_target * 1.5
+                _bfd = self.optimizer.best_trajectory['bfd']
+                _dom = next((k for k, v in sorted_items if k != "总分 (Total)"), "—")
+                _hit = []
+                if _phys_ttl >= 0.95 * _ttl_max:
+                    _hit.append("物理TTL顶硬墙")
+                if _f2 > -5.6:
+                    _hit.append("G2负功率顶最弱上限(f2→-5)")
+                if _bfd <= _cfg.bfd_min * 1.05:
+                    _hit.append("BFD顶下限")
+                if best_score < 20:
+                    verdict.append("👉 【达标】系统状态良好，可直接采用。")
+                elif _hit:
+                    verdict.append(f"👉 【触物理边界】主导误差 {_dom}；已顶满：{'、'.join(_hit)}。")
+                    verdict.append("   这通常是目标超出该结构物理可行域的信号——放宽这些量往往无效（本轮测试中放宽 TTL 曾使误差不降反增）。建议放宽设计目标（降变焦比 / 松 TTL），而非继续调参。")
+                elif best_score > 1000:
+                    verdict.append(f"👉 【超界】主导误差 {_dom}，且无变量顶边界——系统级可行域不足，非单一参数可救。建议放宽设计目标。")
+                else:
+                    verdict.append(f"👉 【高难度区】主导误差 {_dom}。种子可用但偏离理想，进 Zemax 前建议复核；若怀疑可优化，可松开主导项相关量重跑对比。")
+                self.root.after(0, self._log, "\n".join(verdict))
                 self.root.after(0, self._on_success)
             else:
                 self.root.after(
@@ -715,6 +860,8 @@ class ZoomLensDesignerGUI:
             self.root.after(0, self.progress.stop)
             self.root.after(0, lambda: self.btn_run.config(state='normal'))
             self.root.after(0, lambda: self.btn_loop.config(state='normal'))
+            self.root.after(0, lambda: self.btn_mark_base.config(state='normal'))
+            self.root.after(0, lambda: self.btn_perturb.config(state='normal'))
 
     def _on_success(self):
         self.btn_exp.config(state='normal')
