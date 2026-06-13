@@ -25,8 +25,8 @@ from simulator import ZoomConfig
 # 高级字段：我的猜测，需要用户验证
 DEFAULTS = {
     # 主面板
-    'f_wide': 11.9, 'f_tele': 121.0,
-    'ttl_target': 110.0, 'bfd_target': 8.0,
+    'f_wide': 11.9, 'f_tele': 141.0,
+    'ttl_target': 105.0, 'bfd_target': -5.0,
     'f1': 55.0, 'f4': 60.0,
     'sensor_size': 7.6,
     'f_number': 4.0, 'f_number_tele': 5.6,
