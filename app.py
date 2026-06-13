@@ -190,7 +190,7 @@ def run_optimization(
         try:
             opt = ZoomLensOptimizer(cfg)
             extra_seeds = [i * 100 + j for j in range(1, 4)] if i > 1 else None
-            opt.optimize(callback=None, extra_seeds=extra_seeds)
+            opt.optimize_with_routing(callback=None, extra_seeds=extra_seeds)
             current_opt = opt
         except Exception as e:
             log(f"    ✗ 异常: {e}")
