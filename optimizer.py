@@ -165,6 +165,43 @@ class ZoomLensOptimizer:
 
         return True
 
+    def optimize_with_routing(self, callback=None, extra_seeds=None) -> bool:
+        # 单根/换根路由包装。原 optimize() 一字不动,本方法按 root_mode 决定 single_root 后调它。
+        # auto 模式:倍率<=阈值先试单根,EFL 偏差任一>=2% 则切换根重跑。留痕写 self._root_mode_used。
+        zoom = self.config.f_tele / self.config.f_wide
+        mode = self.config.root_mode
+
+        def _efl_dev():
+            efl = np.asarray(self.best_trajectory['efl'], dtype=float)
+            dw = abs(efl[0] - self.config.f_wide) / self.config.f_wide
+            dt = abs(efl[-1] - self.config.f_tele) / self.config.f_tele
+            return max(dw, dt)
+
+        if mode == 'single':
+            self.system.single_root = True
+            self.optimize(callback, extra_seeds)
+            self._root_mode_used = '单根 (强制)'
+        elif mode == 'dual':
+            self.system.single_root = False
+            self.optimize(callback, extra_seeds)
+            self._root_mode_used = '换根 (强制)'
+        else:  # auto
+            if zoom <= self.config.root_mode_threshold:
+                self.system.single_root = True
+                self.optimize(callback, extra_seeds)
+                dev = _efl_dev()
+                if dev < 0.02:
+                    self._root_mode_used = '单根 (auto)'
+                else:
+                    self.system.single_root = False  # A′ 状态翻转:fallback 前显式重设
+                    self.optimize(callback, extra_seeds)
+                    self._root_mode_used = f'单根失败 ({dev*100:.1f}%) → 换根 (auto)'
+            else:
+                self.system.single_root = False
+                self.optimize(callback, extra_seeds)
+                self._root_mode_used = '换根 (auto)'
+        return True
+
     def get_penalty_diagnostics(self, params: np.ndarray) -> dict:
         f2, f3, m2_W, m2_T, f1_dyn, f4_dyn, bfd = params
 
@@ -260,6 +297,9 @@ class ZoomLensOptimizer:
         return np.sum(np.diff(z3, n=2) ** 2) * self.weights['smoothness']
 
     def _penalty_root_center(self, m3: np.ndarray) -> float:
+        # 单根模式:m3 已由 simulator 收窄为纯单支(物理上不穿越 -1),换根居中/强制罚失去意义,置零
+        if getattr(self.system, 'single_root', False):
+            return 0.0
         min_dist = np.min(np.abs(m3 - (-1.0)))
         if np.max(m3) < -1.0 or np.min(m3) > -1.0:
             return min_dist * self.weights['root_force']
@@ -285,6 +325,9 @@ def build_summary_lines(optimizer) -> list:
     cfg = optimizer.config
 
     lines.append("\n>>> 优化成功！核心参数分配:")
+    _mode_tag = getattr(optimizer, '_root_mode_used', None)
+    if _mode_tag:
+        lines.append(f"    补偿模式: {_mode_tag}")
     lines.append(f"    f1 = {best_f1:.3f} mm  (自由优化)")
     lines.append(f"    f2 = {f2:.3f} mm")
     lines.append(f"    f3 = {f3:.3f} mm")
