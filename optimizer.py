@@ -20,7 +20,7 @@ class ZoomLensOptimizer:
         ratio = current_scale / ref_scale
 
         self.weights = {
-            'efl': 5.0e5,
+            'efl': 5.0e6,
             'root_force': 1.0e9,
             'root_center': 1.0e4,
             'gaps': 5.0e7 / ratio,
@@ -43,9 +43,9 @@ class ZoomLensOptimizer:
             (10.0, f_t * 1.5),          # f3
             (-2.0, -0.1),               # m2_W
             (-zoom_ratio * 2.0, -0.5),  # m2_T
-            (20.0, max(80.0, f_t * 0.85)),  # f1 (绝对焦距 mm)
-            (40.0, 80.0),               # f4 (绝对焦距 mm)
-            (0.5 * self.config.bfd_min, 20.0),  # bfd（软下限 ≥ bfd_min）
+            (20.0, 150.0),              # f1 (绝对焦距 mm) — B方案放宽上界80→150,容纳高倍率好解
+            (40.0, 250.0),              # f4 (绝对焦距 mm) — B方案放宽上界80→250,f4是高倍率EFL主闸
+            (0.5 * self.config.bfd_min, 25.0),  # bfd（软下限 ≥ bfd_min）— B方案放宽上界20→25
         )
 
     def objective_function(self, params: np.ndarray) -> float:
