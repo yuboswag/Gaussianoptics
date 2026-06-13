@@ -30,6 +30,9 @@ class ZoomConfig:
     ttl_target: float = 180.0
     f1: float = 100.0
     f4: float = 45.0
+    # ── 换根模式开关 ─────────────────────────────────────────────
+    root_mode: str = 'auto'          # 'auto'|'single'|'dual':auto 按倍率路由,single 强制单根,dual 强制换根
+    root_mode_threshold: float = 6.0  # auto 模式下,倍率<=此值先试单根,失败自动 fallback 换根
     num_positions: int = 61
     # 工程级物理参数
     sensor_size: float = 11.0   # 像面直径(mm)，约 2/3英寸~1英寸传感器对角线
