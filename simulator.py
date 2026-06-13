@@ -17,6 +17,7 @@ class ZoomSystemSimulator:
         self.z_G1 = self._t_G1
         self.z_G4_ref = config.ttl_target - config.bfd_target
         self.bfd_override = None  # None = use config.bfd_target
+        self.single_root = False  # True = 单根模式(opts 仅纯 root1/root2,物理上不穿越 -1);默认 False = 现状
 
     def zoom_sweep(self, f2: float, f3: float, m2_W: float, m2_T: float, f1_dyn: float, f4_dyn: float) -> dict | None:
         N = self.config.num_positions
@@ -109,12 +110,16 @@ class ZoomSystemSimulator:
         root2 = (2.0 * f3 - L_avail + sqrt_delta) / (2.0 * f3)
 
         cross_idx = np.argmin(delta)
-        opts = [
-            root1,
-            root2,
-            np.concatenate((root1[:cross_idx], root2[cross_idx:])),
-            np.concatenate((root2[:cross_idx], root1[cross_idx:]))
-        ]
+        if self.single_root:
+            # 单根模式:只给纯 root1/root2,不构造换根拼接轨迹 → m3 全程同侧,物理上不穿越 -1
+            opts = [root1, root2]
+        else:
+            opts = [
+                root1,
+                root2,
+                np.concatenate((root1[:cross_idx], root2[cross_idx:])),
+                np.concatenate((root2[:cross_idx], root1[cross_idx:]))
+            ]
         
         best_m3 = opts[0]
         best_z3 = z2_img - f3 * (1.0 / best_m3 - 1.0)
