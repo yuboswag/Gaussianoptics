@@ -768,7 +768,7 @@ class ZoomLensDesignerGUI:
                 current_optimizer = ZoomLensOptimizer(config)
                 # 第1轮用默认种子，后续轮次使用额外种子探索不同区域
                 extra_seeds = [i * 100 + j for j in range(1, 4)] if i > 1 else None
-                success = current_optimizer.optimize(callback=None, extra_seeds=extra_seeds)
+                success = current_optimizer.optimize_with_routing(callback=None, extra_seeds=extra_seeds)
 
                 if current_optimizer.best_params is not None:
                     breakdown = current_optimizer.get_penalty_diagnostics(current_optimizer.best_params)
