@@ -15,7 +15,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-from config import ZoomConfig
+from config import ZoomConfig, recommend_ttl
 from optimizer import ZoomLensOptimizer, build_summary_lines
 
 
@@ -104,6 +104,9 @@ class ZoomLensDesignerGUI:
             entry = ttk.Entry(param_frame, width=10)
             entry.grid(row=row, column=col_ent, padx=(0, 20) if idx < half else (0, 4))
             self.params[key] = entry
+        # 焦距填好后按倍率自动推荐 ttl_target（用户手填过则不再覆盖）
+        self.params['f_wide'].bind('<FocusOut>', self._suggest_ttl)
+        self.params['f_tele'].bind('<FocusOut>', self._suggest_ttl)
 
         # ── "保持恒定光圈"复选框 ────────────────────────────────────
         self.var_constant_f = tk.BooleanVar(value=True)
@@ -266,6 +269,23 @@ class ZoomLensDesignerGUI:
 
     # ── 默认值与参数处理 ────────────────────────────────────────
 
+    def _suggest_ttl(self, event=None):
+        # 按倍率自动推荐 ttl_target：读两框焦距→算推荐值→写入 ttl 框。
+        # 保护：焦距非法静默跳过；仅当 ttl 为空或仍是上次自动填的值时才覆盖，尊重用户手填。
+        try:
+            fw = float(self.params['f_wide'].get())
+            ft = float(self.params['f_tele'].get())
+        except (ValueError, KeyError):
+            return
+        cur = self.params['ttl_target'].get().strip()
+        if cur and cur != getattr(self, '_last_auto_ttl', None):
+            return
+        val = f"{recommend_ttl(fw, ft):.1f}"
+        e = self.params['ttl_target']
+        e.delete(0, tk.END)
+        e.insert(0, val)
+        self._last_auto_ttl = val
+
     def _set_default_values(self):
         defaults = dict(
             f_wide="12.0", f_tele="140.0", ttl_target="100.0",
@@ -330,6 +350,10 @@ class ZoomLensDesignerGUI:
             if k in self.params:
                 self.params[k].delete(0, tk.END)
                 self.params[k].insert(0, v)
+        # 启动即按焦距默认值给一次 ttl 推荐，并登记为自动值（使后续 FocusOut 能继续自动更新；
+        # 否则默认值 100 会被 _suggest_ttl 误判为"用户手填"而拒绝覆盖）
+        self.params['ttl_target'].delete(0, tk.END)
+        self._suggest_ttl()
 
         self.params['g1_thickness'].insert(0, str(g1_t_default))
         self.params['g2_thickness'].insert(0, str(g2_t_default))
