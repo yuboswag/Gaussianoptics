@@ -246,9 +246,13 @@ class ZoomLensOptimizer:
 
     # ── 辅助函数保持不变 ──
     def _penalty_efl(self, efl: np.ndarray) -> float:
+        # 高倍率端长焦与广角抢自由度，对称权重下长焦被牺牲（实测 20× Tele 差 −4.4%）。
+        # 倍率 ≥ 10× 给长焦项加权 3，使两端同时进 ±2%；< 10× 维持对称（实测 ≤9× 加权会扰动 7×）。
+        zoom = self.config.f_tele / self.config.f_wide
+        tele_w = 3.0 if zoom >= 10.0 else 1.0
         return (
             ((efl[0]  - self.config.f_wide) / self.config.f_wide) ** 2 +
-            ((efl[-1] - self.config.f_tele) / self.config.f_tele) ** 2
+            tele_w * ((efl[-1] - self.config.f_tele) / self.config.f_tele) ** 2
         ) * self.weights['efl']
 
     def _penalty_gaps(self, d1, d2, d3, CA1, CA2, CA3, CA4) -> float:
