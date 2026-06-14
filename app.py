@@ -18,6 +18,7 @@ import numpy as np
 
 from optimizer import ZoomLensOptimizer, build_summary_lines
 from simulator import ZoomConfig
+from config import recommend_ttl
 
 
 # ==================== 默认值 ====================
@@ -263,7 +264,7 @@ def build_ui():
                     f_wide = gr.Number(label="广角焦距 f_wide (mm)", info="Wide focal length", value=DEFAULTS['f_wide'])
                     f_tele = gr.Number(label="长焦焦距 f_tele (mm)", info="Tele focal length", value=DEFAULTS['f_tele'])
                 with gr.Row():
-                    ttl_target = gr.Number(label="总长 TTL (mm)", info="Total track length", value=DEFAULTS['ttl_target'])
+                    ttl_target = gr.Number(label="总长 TTL (mm)", info="按倍率自动推荐，可手动覆盖", value=recommend_ttl(DEFAULTS['f_wide'], DEFAULTS['f_tele']))
                     bfd_target = gr.Number(label="后焦距下限 BFD_min (mm)", info="Lower bound; optimizer picks actual BFD ≥ this", value=DEFAULTS['bfd_target'])
                 with gr.Row():
                     f1 = gr.Number(label="前组焦距 f1 (mm)", info="Front group focal length", value=DEFAULTS['f1'])
@@ -336,6 +337,12 @@ def build_ui():
             ],
             outputs=[log_output, plot_output, csv_output],
         )
+
+        # ttl_target 按倍率自动推荐：用户填写 f_wide/f_tele 后自动填入，仍可手动覆盖
+        def _suggest_ttl(fw, ft):
+            return gr.update(value=recommend_ttl(fw, ft))
+        f_wide.change(_suggest_ttl, [f_wide, f_tele], ttl_target)
+        f_tele.change(_suggest_ttl, [f_wide, f_tele], ttl_target)
 
     return demo
 

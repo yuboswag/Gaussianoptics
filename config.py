@@ -66,3 +66,16 @@ class ZoomConfig:
     v_eff_G2: float = 30.0  # G2 变倍负组（高色散）
     v_eff_G3: float = 50.0  # G3 补偿组
     v_eff_G4: float = 55.0  # G4 后固定组
+
+
+def recommend_ttl(f_wide: float, f_tele: float) -> float:
+    """按倍率推荐 ttl_target 软目标（标定于 Wide≈10 的 family，验证区间 5×–20×）。
+    低倍率(≤10×)系统短，需较高软目标给足空间；高倍率(>10×)需较低软目标维持梯度避免漂盆地。
+    ttl_target 是软梯度目标、非最终物理 TTL；GUI 中仍可手动覆盖。
+    """
+    if not f_wide or f_wide <= 0 or not f_tele or f_tele <= 0:
+        return 110.0
+    zoom = f_tele / f_wide
+    if zoom <= 10.0:
+        return round(max(70.0, f_tele * 1.1), 1)
+    return round(110.0 + (zoom - 10.0) * 3.8, 1)
